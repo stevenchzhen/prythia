@@ -71,7 +71,7 @@ async function queryHaiku(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 4096,
+      max_tokens: 8192,
       temperature: 0.1,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -91,37 +91,61 @@ function sleep(ms: number) {
 }
 
 async function fetchHighSignalContracts(): Promise<SourceContract[]> {
+  // Get already-mapped contract IDs so we skip them
+  const { data: mapped } = await supabase
+    .from('event_source_mappings')
+    .select('platform, platform_contract_id')
+  const mappedSet = new Set((mapped || []).map(m => `${m.platform}:${m.platform_contract_id}`))
+
+  // Also skip contracts already linked via event_id
+  const { data: linked } = await supabase
+    .from('source_contracts')
+    .select('platform, platform_contract_id')
+    .not('event_id', 'is', null)
+  const linkedSet = new Set((linked || []).map(l => `${l.platform}:${l.platform_contract_id}`))
+
+  const skipSet = new Set([...mappedSet, ...linkedSet])
+
   // Fetch Polymarket contracts with decent liquidity
   const { data: poly } = await supabase
     .from('source_contracts')
     .select('platform, platform_contract_id, contract_title, price, liquidity, volume_total, num_traders')
     .eq('platform', 'polymarket')
     .eq('is_active', true)
+    .is('event_id', null)
     .gt('liquidity', 5000)
     .order('liquidity', { ascending: false })
     .limit(300)
 
-  // Fetch all Kalshi contracts (they're pre-filtered to binary)
+  // Fetch Kalshi contracts not yet mapped
   const { data: kalshi } = await supabase
     .from('source_contracts')
     .select('platform, platform_contract_id, contract_title, price, liquidity, volume_total, num_traders')
     .eq('platform', 'kalshi')
     .eq('is_active', true)
+    .is('event_id', null)
     .gt('liquidity', 100)
     .order('liquidity', { ascending: false })
     .limit(300)
 
-  // Fetch Metaculus with most forecasters
+  // Fetch Metaculus with most forecasters, not yet mapped
   const { data: metaculus } = await supabase
     .from('source_contracts')
     .select('platform, platform_contract_id, contract_title, price, liquidity, volume_total, num_traders')
     .eq('platform', 'metaculus')
     .eq('is_active', true)
+    .is('event_id', null)
     .gt('num_traders', 10)
     .order('num_traders', { ascending: false })
     .limit(200)
 
-  return [...(poly || []), ...(kalshi || []), ...(metaculus || [])] as SourceContract[]
+  const all = [...(poly || []), ...(kalshi || []), ...(metaculus || [])] as SourceContract[]
+
+  // Filter out already-mapped
+  const unmapped = all.filter(c => !skipSet.has(`${c.platform}:${c.platform_contract_id}`))
+  console.log(`  (${all.length - unmapped.length} already mapped, skipping)`)
+
+  return unmapped
 }
 
 async function proposeEvents(contracts: SourceContract[]): Promise<ProposedEvent[]> {
