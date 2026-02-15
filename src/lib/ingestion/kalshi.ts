@@ -157,6 +157,19 @@ export async function fetchKalshi() {
     }
   }
 
+  // Mark contracts not in current fetch as inactive
+  const activeIds = deduped.map(c => c.platform_contract_id)
+  const { error: deactivateError } = await supabaseAdmin
+    .from('source_contracts')
+    .update({ is_active: false })
+    .eq('platform', 'kalshi')
+    .eq('is_active', true)
+    .not('platform_contract_id', 'in', `(${activeIds.join(',')})`)
+
+  if (deactivateError) {
+    console.error('Kalshi deactivation error:', deactivateError)
+  }
+
   return {
     source: 'kalshi',
     count: deduped.length,

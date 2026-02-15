@@ -119,6 +119,7 @@ export async function fetchPolymarket() {
   }> = []
 
   for (const event of events) {
+    if (!event.active || event.closed) continue
     for (const market of event.markets || []) {
       if (!market.active || market.closed) continue
 
@@ -174,6 +175,19 @@ export async function fetchPolymarket() {
     } else {
       upserted += batch.length
     }
+  }
+
+  // Mark contracts not in current fetch as inactive
+  const activeIds = dedupedContracts.map(c => c.platform_contract_id)
+  const { error: deactivateError } = await supabaseAdmin
+    .from('source_contracts')
+    .update({ is_active: false })
+    .eq('platform', 'polymarket')
+    .eq('is_active', true)
+    .not('platform_contract_id', 'in', `(${activeIds.join(',')})`)
+
+  if (deactivateError) {
+    console.error('Polymarket deactivation error:', deactivateError)
   }
 
   return {

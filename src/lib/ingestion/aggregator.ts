@@ -102,41 +102,101 @@ export async function aggregateEvent(eventId: string) {
     return { eventId, updated: false, reason: 'no sources' }
   }
 
+  // 1b. Deduplicate by platform — keep the one with most recent last_trade_at
+  const groupedByPlatform: Record<string, typeof sources> = {}
+  for (const s of sources) {
+    if (!groupedByPlatform[s.platform]) groupedByPlatform[s.platform] = []
+    groupedByPlatform[s.platform].push(s)
+  }
+  const dedupedSources = Object.values(groupedByPlatform).map(group =>
+    group.sort((a, b) =>
+      new Date(b.last_trade_at).getTime() - new Date(a.last_trade_at).getTime()
+    )[0]
+  )
+
   // 2. Apply staleness penalty
-  const adjustedSources = applyStalenessPenalty(sources as SourceData[])
+  const adjustedSources = applyStalenessPenalty(dedupedSources as SourceData[])
 
   // 3. Calculate aggregated probability
   const probability = volumeWeightedAverage(adjustedSources)
 
   // 4. Calculate totals — derive 24h volume from snapshots when API doesn't provide it
-  const totalVolume24h = await derive24hVolume(eventId, sources as SourceData[])
-  const totalVolume = sources.reduce((sum, s) => sum + (s.volume_total || 0), 0)
-  const totalLiquidity = sources.reduce((sum, s) => sum + (s.liquidity || 0), 0)
-  const totalTraders = sources.reduce((sum, s) => sum + (s.num_traders || 0), 0)
+  const totalVolume24h = await derive24hVolume(eventId, dedupedSources as SourceData[])
+  const totalVolume = dedupedSources.reduce((sum, s) => sum + (s.volume_total || 0), 0)
+  const totalLiquidity = dedupedSources.reduce((sum, s) => sum + (s.liquidity || 0), 0)
+  const totalTraders = dedupedSources.reduce((sum, s) => sum + (s.num_traders || 0), 0)
 
   // 5. Calculate cross-platform spread
-  const prices = sources.map((s) => s.price).filter((p): p is number => p !== null)
+  const prices = dedupedSources.map((s) => s.price).filter((p): p is number => p !== null)
   const spread = prices.length > 1 ? Math.max(...prices) - Math.min(...prices) : 0
 
   // 6. Calculate quality score
-  const lastTradeMinutesAgo = sources.reduce((min, s) => {
+  const lastTradeMinutesAgo = dedupedSources.reduce((min, s) => {
     if (!s.last_trade_at) return min
     const ago = (Date.now() - new Date(s.last_trade_at).getTime()) / (1000 * 60)
     return Math.min(min, ago)
   }, Infinity)
 
-  const hasMarketSources = sources.some(
+  const hasMarketSources = dedupedSources.some(
     (s) => s.platform === 'polymarket' || s.platform === 'kalshi'
   )
 
   const qualityScore = calculateQualityScore({
     totalVolume: totalVolume,
-    sourceCount: sources.length,
+    sourceCount: dedupedSources.length,
     lastTradeMinutesAgo: lastTradeMinutesAgo === Infinity ? 1440 : lastTradeMinutesAgo,
     crossPlatformSpread: spread,
     totalTraders: totalTraders,
     hasMarketSources,
   })
+
+  // 6b. Compute probability change fields from historical snapshots
+  const probChanges: Record<string, number | null> = {
+    prob_change_24h: null,
+    prob_change_7d: null,
+    prob_change_30d: null,
+  }
+  const timepoints = [
+    { field: 'prob_change_24h', hours: 24 },
+    { field: 'prob_change_7d', hours: 168 },
+    { field: 'prob_change_30d', hours: 720 },
+  ]
+  for (const { field, hours } of timepoints) {
+    const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
+    const { data: snapshot } = await supabaseAdmin
+      .from('probability_snapshots')
+      .select('probability')
+      .eq('event_id', eventId)
+      .eq('source', 'aggregated')
+      .lte('captured_at', cutoff)
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (snapshot?.probability != null) {
+      probChanges[field] = Math.round((probability - snapshot.probability) * 10000) / 10000
+    }
+  }
+
+  // Compute prob_high_30d / prob_low_30d from snapshots over last 30 days
+  const thirtyDaysAgo = new Date(Date.now() - 720 * 60 * 60 * 1000).toISOString()
+  const { data: rangeSnapshots } = await supabaseAdmin
+    .from('probability_snapshots')
+    .select('probability')
+    .eq('event_id', eventId)
+    .eq('source', 'aggregated')
+    .gte('captured_at', thirtyDaysAgo)
+    .order('captured_at', { ascending: false })
+
+  let probHigh30d: number | null = null
+  let probLow30d: number | null = null
+  if (rangeSnapshots && rangeSnapshots.length > 0) {
+    const probs = rangeSnapshots.map(s => s.probability).filter((p): p is number => p != null)
+    if (probs.length > 0) {
+      probHigh30d = Math.max(...probs)
+      probLow30d = Math.min(...probs)
+    }
+  }
 
   // 7. Update the events table with denormalized data
   const { error: updateError } = await supabaseAdmin
@@ -147,8 +207,13 @@ export async function aggregateEvent(eventId: string) {
       volume_total: totalVolume,
       liquidity_total: totalLiquidity,
       trader_count: totalTraders,
-      source_count: sources.length,
+      source_count: dedupedSources.length,
       quality_score: qualityScore,
+      prob_change_24h: probChanges.prob_change_24h,
+      prob_change_7d: probChanges.prob_change_7d,
+      prob_change_30d: probChanges.prob_change_30d,
+      prob_high_30d: probHigh30d,
+      prob_low_30d: probLow30d,
     })
     .eq('id', eventId)
 
@@ -176,9 +241,9 @@ export async function aggregateEvent(eventId: string) {
   }
 
   // Also insert per-source snapshots (store volume_total for 24h delta computation)
-  for (const source of sources) {
+  for (const source of dedupedSources) {
     if (source.price === null) continue
-    await supabaseAdmin
+    const { error: srcSnapshotError } = await supabaseAdmin
       .from('probability_snapshots')
       .insert({
         event_id: eventId,
@@ -189,6 +254,9 @@ export async function aggregateEvent(eventId: string) {
         liquidity: source.liquidity,
         num_traders: source.num_traders,
       })
+    if (srcSnapshotError) {
+      console.error(`Per-source snapshot error [${eventId}/${source.platform}]:`, srcSnapshotError)
+    }
   }
 
   return {
@@ -196,7 +264,7 @@ export async function aggregateEvent(eventId: string) {
     updated: true,
     probability,
     qualityScore,
-    sourceCount: sources.length,
+    sourceCount: dedupedSources.length,
   }
 }
 

@@ -138,7 +138,7 @@ export async function fetchMetaculus() {
         volume_total: 0,
         liquidity: 0,
         num_traders: forecasterCount,
-        last_trade_at: q.published_at || new Date().toISOString(),
+        last_trade_at: new Date().toISOString(),  // Active now since we're fetching it; published_at is stale
         updated_at: new Date().toISOString(),
         is_active: true,
       }
@@ -167,6 +167,19 @@ export async function fetchMetaculus() {
     } else {
       upserted += batch.length
     }
+  }
+
+  // Mark contracts not in current fetch as inactive
+  const activeIds = contracts.map(c => c.platform_contract_id)
+  const { error: deactivateError } = await supabaseAdmin
+    .from('source_contracts')
+    .update({ is_active: false })
+    .eq('platform', 'metaculus')
+    .eq('is_active', true)
+    .not('platform_contract_id', 'in', `(${activeIds.join(',')})`)
+
+  if (deactivateError) {
+    console.error('Metaculus deactivation error:', deactivateError)
   }
 
   return {
