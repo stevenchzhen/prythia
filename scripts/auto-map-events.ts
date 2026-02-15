@@ -19,7 +19,7 @@ const supabase = createClient(
 )
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-3-5-haiku-20241022'
+const MODEL = 'claude-haiku-4-5-20251001'
 
 const TAXONOMY = `
 Categories (use these exact slugs):
