@@ -381,10 +381,10 @@ export default function Home() {
             </p>
           </div>
           <div className="flex flex-wrap gap-6 text-sm text-zinc-400">
-            <span>Privacy</span>
-            <span>Security</span>
-            <span>Careers</span>
-            <span>Contact</span>
+            <a href="/privacy" className="transition-colors duration-150 hover:text-zinc-200">Privacy</a>
+            <a href="/security" className="transition-colors duration-150 hover:text-zinc-200">Security</a>
+            <a href="/careers" className="transition-colors duration-150 hover:text-zinc-200">Careers</a>
+            <a href="/contact" className="transition-colors duration-150 hover:text-zinc-200">Contact</a>
           </div>
         </div>
       </footer>

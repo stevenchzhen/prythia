@@ -40,7 +40,7 @@ export default function PricingPage() {
   return (
     <SiteShell>
       <section className="grid gap-6">
-        <p className="text-xs uppercase tracking-[0.3em] text-[rgba(247,215,76,0.8)]">Pricing & Access</p>
+        <p className="text-xs uppercase tracking-[0.16em] text-[rgba(247,215,76,0.8)]">Pricing & Access</p>
         <h1 className="text-4xl font-semibold text-white md:text-5xl">
           Access is tailored to your mandate and scale.
         </h1>
@@ -54,7 +54,7 @@ export default function PricingPage() {
         {tiers.map((tier) => (
           <div
             key={tier.title}
-            className="rounded-3xl border border-[rgba(247,215,76,0.16)] bg-[rgba(12,13,20,0.85)] p-6"
+            className="rounded-2xl border border-[rgba(247,215,76,0.16)] bg-[rgba(12,13,20,0.85)] p-6"
           >
             <h2 className="text-xl font-semibold text-white">{tier.title}</h2>
             <p className="mt-2 text-lg text-[rgba(247,215,76,0.9)]">{tier.price}</p>
@@ -71,9 +71,9 @@ export default function PricingPage() {
         ))}
       </section>
 
-      <section className="grid gap-8 rounded-3xl border border-[rgba(247,215,76,0.2)] bg-[rgba(12,13,20,0.9)] p-8">
+      <section className="grid gap-8 rounded-2xl border border-[rgba(247,215,76,0.2)] bg-[rgba(12,13,20,0.9)] p-8">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-[rgba(247,215,76,0.8)]">Access Path</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-[rgba(247,215,76,0.8)]">Access Path</p>
           <h2 className="mt-3 text-3xl font-semibold text-white">
             A structured path from discovery to scale.
           </h2>
@@ -81,7 +81,7 @@ export default function PricingPage() {
         <div className="grid gap-4 md:grid-cols-3">
           {accessSteps.map((step, index) => (
             <div key={step.title} className="rounded-2xl bg-[rgba(6,7,10,0.75)] p-5">
-              <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">Step {index + 1}</p>
+              <p className="text-xs uppercase tracking-[0.16em] text-zinc-500">Step {index + 1}</p>
               <h3 className="mt-2 text-lg font-semibold text-white">{step.title}</h3>
               <p className="mt-2 text-sm text-zinc-400">{step.description}</p>
             </div>

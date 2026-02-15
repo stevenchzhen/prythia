@@ -30,7 +30,7 @@ export default function ProductPage() {
     <SiteShell>
       <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="flex flex-col gap-6">
-          <p className="text-xs uppercase tracking-[0.3em] text-[rgba(247,215,76,0.8)]">Product</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-[rgba(247,215,76,0.8)]">Product</p>
           <h1 className="text-4xl font-semibold leading-tight text-white md:text-5xl">
             A signal OS built for conviction trading.
           </h1>
@@ -47,8 +47,8 @@ export default function ProductPage() {
             </button>
           </div>
         </div>
-        <div className="glass-surface rounded-3xl p-6">
-          <p className="text-xs uppercase tracking-[0.24em] text-zinc-400">Live Signal Cards</p>
+        <div className="glass-surface rounded-2xl p-6">
+          <p className="text-xs uppercase tracking-[0.16em] text-zinc-400">Live Signal Cards</p>
           <div className="mt-6 grid gap-4">
             {modules.map((module) => (
               <div
@@ -65,7 +65,7 @@ export default function ProductPage() {
 
       <section className="grid gap-8">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-[rgba(247,215,76,0.8)]">Core Capabilities</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-[rgba(247,215,76,0.8)]">Core Capabilities</p>
           <h2 className="mt-3 text-3xl font-semibold text-white">
             Everything you need to move before the narrative forms.
           </h2>
@@ -74,7 +74,7 @@ export default function ProductPage() {
           {capabilities.map((capability) => (
             <div
               key={capability}
-              className="rounded-3xl border border-[rgba(247,215,76,0.14)] bg-[rgba(12,13,20,0.85)] p-6 text-sm text-zinc-300"
+              className="rounded-2xl border border-[rgba(247,215,76,0.14)] bg-[rgba(12,13,20,0.85)] p-6 text-sm text-zinc-300"
             >
               {capability}
             </div>
@@ -82,7 +82,7 @@ export default function ProductPage() {
         </div>
       </section>
 
-      <section className="grid gap-6 rounded-3xl border border-[rgba(247,215,76,0.2)] bg-[rgba(12,13,20,0.9)] p-8">
+      <section className="grid gap-6 rounded-2xl border border-[rgba(247,215,76,0.2)] bg-[rgba(12,13,20,0.9)] p-8">
         <h2 className="text-2xl font-semibold text-white">Integrate in days, not quarters.</h2>
         <p className="text-sm text-zinc-400">
           Prythia ships with secure APIs, prebuilt dashboards, and alert routing so your team can pilot

@@ -44,7 +44,7 @@ export default function SolutionsPage() {
   return (
     <SiteShell>
       <section className="grid gap-6">
-        <p className="text-xs uppercase tracking-[0.3em] text-[rgba(247,215,76,0.8)]">Solutions</p>
+        <p className="text-xs uppercase tracking-[0.16em] text-[rgba(247,215,76,0.8)]">Solutions</p>
         <h1 className="text-4xl font-semibold text-white md:text-5xl">
           Use cases built around how modern funds actually trade.
         </h1>
@@ -58,7 +58,7 @@ export default function SolutionsPage() {
         {solutionGroups.map((solution) => (
           <div
             key={solution.title}
-            className="rounded-3xl border border-[rgba(247,215,76,0.16)] bg-[rgba(12,13,20,0.85)] p-6"
+            className="rounded-2xl border border-[rgba(247,215,76,0.16)] bg-[rgba(12,13,20,0.85)] p-6"
           >
             <h2 className="text-xl font-semibold text-white">{solution.title}</h2>
             <p className="mt-3 text-sm text-zinc-400">{solution.description}</p>
@@ -78,7 +78,7 @@ export default function SolutionsPage() {
 
       <section className="grid gap-8">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-[rgba(247,215,76,0.8)]">Use Case Library</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-[rgba(247,215,76,0.8)]">Use Case Library</p>
           <h2 className="mt-3 text-3xl font-semibold text-white">
             Curated workflows for every mandate.
           </h2>
@@ -87,7 +87,7 @@ export default function SolutionsPage() {
           {useCases.map((useCase) => (
             <div
               key={useCase.title}
-              className="rounded-3xl border border-[rgba(247,215,76,0.14)] bg-[rgba(12,13,20,0.85)] p-6"
+              className="rounded-2xl border border-[rgba(247,215,76,0.14)] bg-[rgba(12,13,20,0.85)] p-6"
             >
               <h3 className="text-lg font-semibold text-white">{useCase.title}</h3>
               <p className="mt-2 text-sm text-zinc-400">{useCase.description}</p>
