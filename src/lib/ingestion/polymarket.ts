@@ -157,7 +157,19 @@ export async function fetchPolymarket() {
     return { source: 'polymarket', count: 0, upserted: 0 }
   }
 
-  // Upsert in batches of 100 (Supabase limit)
+  // Mark all Polymarket contracts inactive first, then upsert re-activates current ones.
+  // This avoids a massive NOT IN clause that can exceed URL length limits.
+  const { error: deactivateError } = await supabaseAdmin
+    .from('source_contracts')
+    .update({ is_active: false })
+    .eq('platform', 'polymarket')
+    .eq('is_active', true)
+
+  if (deactivateError) {
+    console.error('Polymarket deactivation error:', deactivateError)
+  }
+
+  // Upsert in batches of 100 (re-activates current contracts via is_active: true)
   const BATCH_SIZE = 100
   let upserted = 0
 
@@ -175,19 +187,6 @@ export async function fetchPolymarket() {
     } else {
       upserted += batch.length
     }
-  }
-
-  // Mark contracts not in current fetch as inactive
-  const activeIds = dedupedContracts.map(c => c.platform_contract_id)
-  const { error: deactivateError } = await supabaseAdmin
-    .from('source_contracts')
-    .update({ is_active: false })
-    .eq('platform', 'polymarket')
-    .eq('is_active', true)
-    .not('platform_contract_id', 'in', `(${activeIds.join(',')})`)
-
-  if (deactivateError) {
-    console.error('Polymarket deactivation error:', deactivateError)
   }
 
   return {

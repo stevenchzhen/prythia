@@ -2,28 +2,43 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 
 const KALSHI_API = 'https://api.elections.kalshi.com/trade-api/v2'
 
-/**
- * Kalshi market from the /markets endpoint.
- * Prices in dollars as fixed-point strings (e.g., "0.5600").
- */
+/** Categories to ingest — excludes Sports and Entertainment */
+const DESIRED_CATEGORIES = new Set([
+  'Politics',
+  'Economics',
+  'Financials',
+  'Elections',
+  'World',
+  'Climate and Weather',
+  'Science and Technology',
+  'Companies',
+  'Crypto',
+  'Health',
+  'Social',
+  'Transportation',
+  'Education',
+  'Mentions',
+])
+
+/** Kalshi market nested inside an event */
 interface KalshiMarket {
   ticker: string
   event_ticker: string
   title: string
   subtitle: string
   yes_sub_title: string
-  market_type: string          // "binary" | "scalar"
-  status: string               // "active" | "closed" | "settled" etc.
-  last_price: number           // deprecated cents
-  last_price_dollars: string   // "0.5600"
-  yes_bid: number              // deprecated cents
+  market_type: string
+  status: string
+  last_price: number
+  last_price_dollars: string
+  yes_bid: number
   yes_bid_dollars: string
-  yes_ask: number              // deprecated cents
+  yes_ask: number
   yes_ask_dollars: string
   previous_price_dollars: string
   volume: number
   volume_24h: number
-  liquidity: number            // deprecated
+  liquidity: number
   liquidity_dollars: string
   open_interest: number
   close_time: string
@@ -34,8 +49,17 @@ interface KalshiMarket {
   rules_primary: string
 }
 
-interface KalshiResponse {
+/** Kalshi event from the /events endpoint */
+interface KalshiEvent {
+  event_ticker: string
+  series_ticker: string
+  title: string
+  category: string
   markets: KalshiMarket[]
+}
+
+interface KalshiEventsResponse {
+  events: KalshiEvent[]
   cursor: string
 }
 
@@ -48,11 +72,11 @@ function parseDollars(s: string): number {
 }
 
 /**
- * Fetch all active Kalshi markets.
- * Uses cursor-based pagination.
+ * Fetch all open Kalshi events with nested markets.
+ * Uses cursor-based pagination on the /events endpoint.
  */
-async function fetchAllMarkets(): Promise<KalshiMarket[]> {
-  const allMarkets: KalshiMarket[] = []
+async function fetchAllEvents(): Promise<KalshiEvent[]> {
+  const allEvents: KalshiEvent[] = []
   let cursor = ''
   let hasMore = true
   const PAGE_SIZE = 200
@@ -60,11 +84,12 @@ async function fetchAllMarkets(): Promise<KalshiMarket[]> {
   while (hasMore) {
     const params = new URLSearchParams({
       status: 'open',
+      with_nested_markets: 'true',
       limit: String(PAGE_SIZE),
     })
     if (cursor) params.set('cursor', cursor)
 
-    const response = await fetch(`${KALSHI_API}/markets?${params}`, {
+    const response = await fetch(`${KALSHI_API}/events?${params}`, {
       headers: { 'Content-Type': 'application/json' },
     })
 
@@ -72,58 +97,79 @@ async function fetchAllMarkets(): Promise<KalshiMarket[]> {
       throw new Error(`Kalshi API error: ${response.status}`)
     }
 
-    const data: KalshiResponse = await response.json()
-    allMarkets.push(...(data.markets || []))
+    const data: KalshiEventsResponse = await response.json()
+    allEvents.push(...(data.events || []))
 
-    if (!data.cursor || (data.markets || []).length < PAGE_SIZE) {
+    if (!data.cursor || (data.events || []).length < PAGE_SIZE) {
       hasMore = false
     } else {
       cursor = data.cursor
     }
 
     // Safety cap
-    if (allMarkets.length >= 5000) break
+    if (allEvents.length >= 5000) break
   }
 
-  return allMarkets
+  return allEvents
 }
 
 /**
  * Full Kalshi ingestion pipeline:
- * 1. Fetch all active markets
- * 2. Filter to binary markets with valid prices
- * 3. Normalize to source_contracts schema
- * 4. Upsert into Supabase
+ * 1. Fetch all open events with nested markets
+ * 2. Filter out sports/entertainment categories
+ * 3. Extract binary markets with valid prices
+ * 4. Normalize to source_contracts schema
+ * 5. Upsert into Supabase
  */
 export async function fetchKalshi() {
-  const markets = await fetchAllMarkets()
+  const events = await fetchAllEvents()
 
-  // Filter: binary only, with actual price data
-  const contracts = markets
-    .filter((m) => m.market_type === 'binary' && m.status === 'active')
-    .map((m) => {
-      // Use mid of yes_bid and yes_ask as price, fall back to last_price
+  // Filter to desired categories
+  const filteredEvents = events.filter(e => DESIRED_CATEGORIES.has(e.category))
+
+  // Extract individual binary markets from events
+  const contracts: Array<{
+    platform: string
+    platform_contract_id: string
+    platform_url: string
+    contract_title: string
+    price: number
+    volume_24h: number
+    volume_total: number
+    liquidity: number
+    num_traders: number
+    last_trade_at: string
+    updated_at: string
+    is_active: boolean
+  }> = []
+
+  for (const event of filteredEvents) {
+    for (const m of event.markets || []) {
+      if (m.market_type !== 'binary' || m.status !== 'active') continue
+
       const bid = parseDollars(m.yes_bid_dollars)
       const ask = parseDollars(m.yes_ask_dollars)
       const last = parseDollars(m.last_price_dollars)
       const price = bid > 0 && ask > 0 ? (bid + ask) / 2 : last
 
-      return {
-        platform: 'kalshi' as const,
+      if (price <= 0 || price >= 1) continue
+
+      contracts.push({
+        platform: 'kalshi',
         platform_contract_id: m.ticker,
         platform_url: `https://kalshi.com/markets/${m.event_ticker}/${m.ticker}`,
-        contract_title: m.title || m.yes_sub_title,
-        price: Math.round(price * 10000) / 10000, // Round to 4 decimal places
+        contract_title: m.title || m.yes_sub_title || event.title,
+        price: Math.round(price * 10000) / 10000,
         volume_24h: m.volume_24h || 0,
         volume_total: m.volume || 0,
         liquidity: parseDollars(m.liquidity_dollars),
-        num_traders: 0, // Not available from this endpoint
+        num_traders: 0,
         last_trade_at: m.updated_time || new Date().toISOString(),
         updated_at: new Date().toISOString(),
         is_active: true,
-      }
-    })
-    .filter((c) => c.price > 0 && c.price < 1) // Valid probability range
+      })
+    }
+  }
 
   // Deduplicate by ticker
   const seen = new Set<string>()
@@ -134,10 +180,29 @@ export async function fetchKalshi() {
   })
 
   if (deduped.length === 0) {
-    return { source: 'kalshi', count: 0, upserted: 0 }
+    return {
+      source: 'kalshi',
+      count: 0,
+      upserted: 0,
+      events_fetched: events.length,
+      events_filtered: filteredEvents.length,
+      sports_excluded: events.length - filteredEvents.length,
+    }
   }
 
-  // Upsert in batches
+  // Mark all Kalshi contracts inactive first, then upsert re-activates current ones.
+  // This avoids a massive NOT IN clause that can exceed URL length limits.
+  const { error: deactivateError } = await supabaseAdmin
+    .from('source_contracts')
+    .update({ is_active: false })
+    .eq('platform', 'kalshi')
+    .eq('is_active', true)
+
+  if (deactivateError) {
+    console.error('Kalshi deactivation error:', deactivateError)
+  }
+
+  // Upsert in batches (re-activates current contracts via is_active: true)
   const BATCH_SIZE = 100
   let upserted = 0
 
@@ -157,23 +222,12 @@ export async function fetchKalshi() {
     }
   }
 
-  // Mark contracts not in current fetch as inactive
-  const activeIds = deduped.map(c => c.platform_contract_id)
-  const { error: deactivateError } = await supabaseAdmin
-    .from('source_contracts')
-    .update({ is_active: false })
-    .eq('platform', 'kalshi')
-    .eq('is_active', true)
-    .not('platform_contract_id', 'in', `(${activeIds.join(',')})`)
-
-  if (deactivateError) {
-    console.error('Kalshi deactivation error:', deactivateError)
-  }
-
   return {
     source: 'kalshi',
     count: deduped.length,
     upserted,
-    markets_fetched: markets.length,
+    events_fetched: events.length,
+    events_filtered: filteredEvents.length,
+    sports_excluded: events.length - filteredEvents.length,
   }
 }

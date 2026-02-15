@@ -13,6 +13,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/auto-map",
+      "schedule": "*/30 * * * *"
+    },
+    {
       "path": "/api/cron/ai-analysis",
       "schedule": "0 6 * * *"
     },

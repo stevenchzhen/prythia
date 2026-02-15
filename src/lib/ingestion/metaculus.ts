@@ -149,7 +149,19 @@ export async function fetchMetaculus() {
     return { source: 'metaculus', count: 0, upserted: 0 }
   }
 
-  // Upsert in batches
+  // Mark all Metaculus contracts inactive first, then upsert re-activates current ones.
+  // This avoids a massive NOT IN clause that can exceed URL length limits.
+  const { error: deactivateError } = await supabaseAdmin
+    .from('source_contracts')
+    .update({ is_active: false })
+    .eq('platform', 'metaculus')
+    .eq('is_active', true)
+
+  if (deactivateError) {
+    console.error('Metaculus deactivation error:', deactivateError)
+  }
+
+  // Upsert in batches (re-activates current contracts via is_active: true)
   const BATCH_SIZE = 100
   let upserted = 0
 
@@ -167,19 +179,6 @@ export async function fetchMetaculus() {
     } else {
       upserted += batch.length
     }
-  }
-
-  // Mark contracts not in current fetch as inactive
-  const activeIds = contracts.map(c => c.platform_contract_id)
-  const { error: deactivateError } = await supabaseAdmin
-    .from('source_contracts')
-    .update({ is_active: false })
-    .eq('platform', 'metaculus')
-    .eq('is_active', true)
-    .not('platform_contract_id', 'in', `(${activeIds.join(',')})`)
-
-  if (deactivateError) {
-    console.error('Metaculus deactivation error:', deactivateError)
   }
 
   return {
