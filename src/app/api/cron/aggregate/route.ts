@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { aggregateAllEvents } from '@/lib/ingestion/aggregator'
+
+export const maxDuration = 30
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
@@ -7,19 +10,17 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // TODO: For each event with updated sources:
-    // 1. Calculate volume-weighted average probability
-    // 2. Calculate data quality score
-    // 3. Calculate 24h/7d/30d probability changes
-    // 4. Upsert denormalized fields on events table
+    const result = await aggregateAllEvents()
 
     return NextResponse.json({
       success: true,
-      events_updated: 0,
+      ...result,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
     console.error('Aggregation error:', error)
-    return NextResponse.json({ error: 'Aggregation failed' }, { status: 500 })
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Aggregation failed',
+    }, { status: 500 })
   }
 }

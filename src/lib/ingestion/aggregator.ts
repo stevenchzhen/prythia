@@ -5,6 +5,7 @@ interface SourceData {
   platform: string
   price: number
   volume_24h: number
+  volume_total: number
   liquidity: number
   num_traders: number
   last_trade_at: string
@@ -14,19 +15,23 @@ interface SourceData {
  * Calculate volume-weighted average probability across platforms.
  * Higher volume = more informed signal.
  */
-export function volumeWeightedAverage(sources: SourceData[]): number {
-  const totalVolume = sources.reduce((sum, s) => sum + s.volume_24h, 0)
-  if (totalVolume === 0) {
+function volumeWeightedAverage(sources: SourceData[]): number {
+  // Use liquidity as weight if volume_24h is 0 (common for Polymarket Gamma API)
+  const weights = sources.map((s) => s.volume_total || s.liquidity || 1)
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0)
+
+  if (totalWeight === 0) {
     // Equal weight fallback
     return sources.reduce((sum, s) => sum + s.price, 0) / sources.length
   }
-  return sources.reduce((sum, s) => sum + s.price * (s.volume_24h / totalVolume), 0)
+
+  return sources.reduce((sum, s, i) => sum + s.price * (weights[i] / totalWeight), 0)
 }
 
 /**
  * Apply staleness penalty: downweight platforms with old last trades.
  */
-export function applyStalenessPenalty(sources: SourceData[]): SourceData[] {
+function applyStalenessPenalty(sources: SourceData[]): SourceData[] {
   const now = Date.now()
   return sources.map((s) => {
     const lastTrade = new Date(s.last_trade_at).getTime()
@@ -38,34 +43,146 @@ export function applyStalenessPenalty(sources: SourceData[]): SourceData[] {
 
     return {
       ...s,
-      volume_24h: s.volume_24h * weight,
+      volume_total: s.volume_total * weight,
+      liquidity: s.liquidity * weight,
     }
   })
 }
 
 /**
- * Detect outliers: flag platforms diverging >15% from the mean.
+ * Aggregate event data from all source contracts, update the events table,
+ * and insert a probability snapshot.
  */
-export function detectOutliers(sources: SourceData[]): string[] {
-  if (sources.length < 2) return []
+export async function aggregateEvent(eventId: string) {
+  // 1. Fetch all active source_contracts for this event
+  const { data: sources, error: fetchError } = await supabaseAdmin
+    .from('source_contracts')
+    .select('platform, price, volume_24h, volume_total, liquidity, num_traders, last_trade_at')
+    .eq('event_id', eventId)
+    .eq('is_active', true)
 
-  const mean = sources.reduce((sum, s) => sum + s.price, 0) / sources.length
-  return sources
-    .filter((s) => Math.abs(s.price - mean) > 0.15)
-    .map((s) => s.platform)
+  if (fetchError || !sources || sources.length === 0) {
+    return { eventId, updated: false, reason: 'no sources' }
+  }
+
+  // 2. Apply staleness penalty
+  const adjustedSources = applyStalenessPenalty(sources as SourceData[])
+
+  // 3. Calculate aggregated probability
+  const probability = volumeWeightedAverage(adjustedSources)
+
+  // 4. Calculate totals
+  const totalVolume24h = sources.reduce((sum, s) => sum + (s.volume_24h || 0), 0)
+  const totalVolume = sources.reduce((sum, s) => sum + (s.volume_total || 0), 0)
+  const totalLiquidity = sources.reduce((sum, s) => sum + (s.liquidity || 0), 0)
+  const totalTraders = sources.reduce((sum, s) => sum + (s.num_traders || 0), 0)
+
+  // 5. Calculate cross-platform spread
+  const prices = sources.map((s) => s.price).filter((p): p is number => p !== null)
+  const spread = prices.length > 1 ? Math.max(...prices) - Math.min(...prices) : 0
+
+  // 6. Calculate quality score
+  const lastTradeMinutesAgo = sources.reduce((min, s) => {
+    if (!s.last_trade_at) return min
+    const ago = (Date.now() - new Date(s.last_trade_at).getTime()) / (1000 * 60)
+    return Math.min(min, ago)
+  }, Infinity)
+
+  const qualityScore = calculateQualityScore({
+    totalVolume: totalVolume,
+    sourceCount: sources.length,
+    lastTradeMinutesAgo: lastTradeMinutesAgo === Infinity ? 1440 : lastTradeMinutesAgo,
+    crossPlatformSpread: spread,
+  })
+
+  // 7. Update the events table with denormalized data
+  const { error: updateError } = await supabaseAdmin
+    .from('events')
+    .update({
+      probability,
+      volume_24h: totalVolume24h,
+      volume_total: totalVolume,
+      liquidity_total: totalLiquidity,
+      trader_count: totalTraders,
+      source_count: sources.length,
+      quality_score: qualityScore,
+    })
+    .eq('id', eventId)
+
+  if (updateError) {
+    console.error(`Aggregation update error [${eventId}]:`, updateError)
+    return { eventId, updated: false, reason: 'update_error' }
+  }
+
+  // 8. Insert probability snapshot for historical tracking
+  const { error: snapshotError } = await supabaseAdmin
+    .from('probability_snapshots')
+    .insert({
+      event_id: eventId,
+      source: 'aggregated',
+      captured_at: new Date().toISOString(),
+      probability,
+      volume: totalVolume24h,
+      liquidity: totalLiquidity,
+      num_traders: totalTraders,
+      quality_score: qualityScore,
+    })
+
+  if (snapshotError) {
+    console.error(`Snapshot insert error [${eventId}]:`, snapshotError)
+  }
+
+  // Also insert per-source snapshots
+  for (const source of sources) {
+    if (source.price === null) continue
+    await supabaseAdmin
+      .from('probability_snapshots')
+      .insert({
+        event_id: eventId,
+        source: source.platform,
+        captured_at: new Date().toISOString(),
+        probability: source.price,
+        volume: source.volume_24h,
+        liquidity: source.liquidity,
+        num_traders: source.num_traders,
+      })
+  }
+
+  return {
+    eventId,
+    updated: true,
+    probability,
+    qualityScore,
+    sourceCount: sources.length,
+  }
 }
 
 /**
- * Aggregate event data from all source contracts and update the events table.
+ * Aggregate all events that have source contracts linked via event_source_mappings.
+ * This runs after the ingestion step.
  */
-export async function aggregateEvent(eventId: string) {
-  // TODO: Full aggregation pipeline
-  // 1. Fetch all source_contracts for this event
-  // 2. Apply staleness penalty
-  // 3. Calculate volume-weighted average probability
-  // 4. Detect outliers
-  // 5. Calculate quality score
-  // 6. Calculate 24h/7d/30d changes from probability_snapshots
-  // 7. Upsert events table with denormalized data
-  // 8. Insert new probability_snapshot row
+export async function aggregateAllEvents() {
+  // Find all events that have at least one active source contract
+  const { data: events, error } = await supabaseAdmin
+    .from('events')
+    .select('id')
+    .eq('resolution_status', 'open')
+    .eq('is_active', true)
+
+  if (error || !events) {
+    console.error('Failed to fetch events for aggregation:', error)
+    return { eventsProcessed: 0, eventsUpdated: 0 }
+  }
+
+  let eventsUpdated = 0
+
+  for (const event of events) {
+    const result = await aggregateEvent(event.id)
+    if (result.updated) eventsUpdated++
+  }
+
+  return {
+    eventsProcessed: events.length,
+    eventsUpdated,
+  }
 }

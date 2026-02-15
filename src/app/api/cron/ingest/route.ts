@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-// import { supabaseAdmin } from '@/lib/supabase/admin'
-// import { fetchPolymarket } from '@/lib/ingestion/polymarket'
-// import { fetchKalshi } from '@/lib/ingestion/kalshi'
-// import { fetchMetaculus } from '@/lib/ingestion/metaculus'
+import { fetchPolymarket } from '@/lib/ingestion/polymarket'
+import { aggregateAllEvents } from '@/lib/ingestion/aggregator'
+
+export const maxDuration = 60 // Allow up to 60s for ingestion (Vercel Pro)
 
 export async function GET(request: NextRequest) {
   // Verify cron secret
@@ -11,24 +11,41 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  try {
-    // TODO: Fetch from all sources in parallel
-    // const [polymarket, kalshi, metaculus] = await Promise.allSettled([
-    //   fetchPolymarket(),
-    //   fetchKalshi(),
-    //   fetchMetaculus(),
-    // ])
+  const startTime = Date.now()
 
-    // TODO: Upsert source contracts
-    // TODO: Insert probability snapshots
+  try {
+    // 1. Fetch from all sources in parallel
+    const [polymarketResult] = await Promise.allSettled([
+      fetchPolymarket(),
+      // TODO Step 5: Add fetchKalshi() and fetchMetaculus()
+    ])
+
+    const sourceResults = {
+      polymarket: polymarketResult.status === 'fulfilled'
+        ? polymarketResult.value
+        : { source: 'polymarket', error: (polymarketResult as PromiseRejectedResult).reason?.message },
+    }
+
+    // 2. Aggregate probabilities for all mapped events
+    const aggregationResult = await aggregateAllEvents()
+
+    const duration = Date.now() - startTime
 
     return NextResponse.json({
       success: true,
-      sources: {},
+      duration_ms: duration,
+      sources: sourceResults,
+      aggregation: aggregationResult,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
+    const duration = Date.now() - startTime
     console.error('Ingestion error:', error)
-    return NextResponse.json({ error: 'Ingestion failed' }, { status: 500 })
+    return NextResponse.json({
+      success: false,
+      duration_ms: duration,
+      error: error instanceof Error ? error.message : 'Ingestion failed',
+      timestamp: new Date().toISOString(),
+    }, { status: 500 })
   }
 }
