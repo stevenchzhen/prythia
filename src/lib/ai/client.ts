@@ -15,8 +15,8 @@ export type ModelTier = 'fast' | 'heavy'
 
 // Model IDs — update when new versions release
 const MODELS: Record<ModelTier, string> = {
-  fast: 'claude-haiku-4-20250414',
-  heavy: 'claude-sonnet-4-20250514',
+  fast: 'claude-3-5-haiku-20241022',
+  heavy: 'claude-3-5-sonnet-20241022',
 }
 
 export interface Message {
