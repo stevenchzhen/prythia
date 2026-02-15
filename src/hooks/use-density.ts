@@ -1,22 +1,20 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 
 export type Density = 'compact' | 'default' | 'expanded'
 
 const STORAGE_KEY = 'prythia-density'
 const DENSITY_CYCLE: Density[] = ['compact', 'default', 'expanded']
 
-export function useDensity() {
-  const [density, setDensityState] = useState<Density>('default')
+function getStoredDensity(): Density {
+  if (typeof window === 'undefined') return 'default'
+  const stored = localStorage.getItem(STORAGE_KEY) as Density | null
+  return stored && DENSITY_CYCLE.includes(stored) ? stored : 'default'
+}
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Density | null
-    if (stored && DENSITY_CYCLE.includes(stored)) {
-      setDensityState(stored)
-    }
-  }, [])
+export function useDensity() {
+  const [density, setDensityState] = useState<Density>(getStoredDensity)
 
   const setDensity = useCallback((d: Density) => {
     setDensityState(d)
