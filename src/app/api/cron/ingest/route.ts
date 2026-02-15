@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchPolymarket } from '@/lib/ingestion/polymarket'
+import { fetchKalshi } from '@/lib/ingestion/kalshi'
+import { fetchMetaculus } from '@/lib/ingestion/metaculus'
 import { aggregateAllEvents } from '@/lib/ingestion/aggregator'
 
 export const maxDuration = 60 // Allow up to 60s for ingestion (Vercel Pro)
@@ -14,16 +16,23 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now()
 
   try {
-    // 1. Fetch from all sources in parallel
-    const [polymarketResult] = await Promise.allSettled([
+    // 1. Fetch from all three sources in parallel
+    const [polymarketResult, kalshiResult, metaculusResult] = await Promise.allSettled([
       fetchPolymarket(),
-      // TODO Step 5: Add fetchKalshi() and fetchMetaculus()
+      fetchKalshi(),
+      fetchMetaculus(),
     ])
 
     const sourceResults = {
       polymarket: polymarketResult.status === 'fulfilled'
         ? polymarketResult.value
         : { source: 'polymarket', error: (polymarketResult as PromiseRejectedResult).reason?.message },
+      kalshi: kalshiResult.status === 'fulfilled'
+        ? kalshiResult.value
+        : { source: 'kalshi', error: (kalshiResult as PromiseRejectedResult).reason?.message },
+      metaculus: metaculusResult.status === 'fulfilled'
+        ? metaculusResult.value
+        : { source: 'metaculus', error: (metaculusResult as PromiseRejectedResult).reason?.message },
     }
 
     // 2. Aggregate probabilities for all mapped events
