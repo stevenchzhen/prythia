@@ -1,53 +1,64 @@
 /**
- * Prythia design tokens.
+ * Prythia "Precision Futurism" design tokens.
  *
- * These are also defined as CSS variables in globals.css and Tailwind config.
- * This file provides typed JS access for components that need programmatic color values
- * (e.g., Recharts, dynamic styling).
+ * Matched to prythia.com marketing site:
+ * - Dark obsidian base (#050506)
+ * - Amber/gold accent (#f7d74c)
+ * - Space Grotesk + JetBrains Mono
+ * - Glass surfaces with backdrop blur
+ * - Dot grid background pattern
+ *
+ * Use this file for Recharts and dynamic inline styles.
+ * CSS variables are in globals.css.
  */
 
 export const colors = {
-  // Core palette
-  bg: '#0f172a',
-  surface: '#1e293b',
-  border: '#334155',
-  accent: '#e94560',
-  ai: '#8b5cf6',
+  // Obsidian base
+  bg: '#050506',
+  surface: '#0e0f14',
+  surfaceMuted: '#161823',
+  stroke: '#2a2d3b',
+
+  // Primary accent (amber/gold)
+  primary: '#f7d74c',
+  primaryStrong: '#ffd84a',
+  primaryGhost: 'rgba(247, 215, 76, 0.04)',
+  primarySubtle: 'rgba(247, 215, 76, 0.08)',
+  primaryBorder: 'rgba(247, 215, 76, 0.12)',
+  primaryMuted: 'rgba(247, 215, 76, 0.20)',
+  primaryMid: 'rgba(247, 215, 76, 0.50)',
+  primaryText: 'rgba(247, 215, 76, 0.85)',
+
+  // Signal colors
   positive: '#22c55e',
   negative: '#ef4444',
-  neutral: '#94a3b8',
 
   // Text
-  textPrimary: '#f1f5f9',
-  textMuted: '#64748b',
+  foreground: '#f8f7f2',
+  textMuted: '#71717a', // zinc-500
+  textDim: '#52525b', // zinc-600
 
-  // Backgrounds
-  navy: '#1a1a2e',
-  card: '#1e293b',
-  surfaceHover: '#263040',
-} as const
-
-export const spacing = {
-  xs: '0.25rem',
-  sm: '0.5rem',
-  md: '1rem',
-  lg: '1.5rem',
-  xl: '2rem',
-  '2xl': '3rem',
+  // Glass
+  glassBg: 'rgba(12, 13, 20, 0.72)',
+  glassBorder: 'rgba(247, 215, 76, 0.14)',
+  glassCard: 'rgba(12, 13, 20, 0.85)',
+  glassNested: 'rgba(6, 7, 10, 0.75)',
 } as const
 
 export const typography = {
-  fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-  monoFamily: 'JetBrains Mono, Menlo, Monaco, monospace',
+  fontFamily: '"Space Grotesk", system-ui, sans-serif',
+  monoFamily: '"JetBrains Mono", monospace',
 } as const
 
-// Chart-specific tokens
+// Recharts tokens
 export const chartColors = {
-  line: colors.ai,
-  area: `${colors.ai}20`, // 12% opacity
-  volume: colors.border,
-  grid: '#1e293b',
+  line: colors.primary,
+  area: colors.primaryGhost,
+  volume: colors.primarySubtle,
+  grid: colors.primaryGhost,
   tooltip: colors.surface,
+  tooltipBorder: colors.glassBorder,
   positive: colors.positive,
   negative: colors.negative,
+  axis: colors.stroke,
 } as const

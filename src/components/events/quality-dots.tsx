@@ -12,7 +12,7 @@ export function QualityDots({ score, maxDots = 4 }: QualityDotsProps) {
         <span
           key={i}
           className={`inline-block w-1.5 h-1.5 rounded-full ${
-            i < filled ? 'bg-white' : 'bg-slate-600'
+            i < filled ? 'bg-[rgba(247,215,76,0.7)]' : 'bg-[#2a2d3b]'
           }`}
         />
       ))}

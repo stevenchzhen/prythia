@@ -25,7 +25,7 @@ export async function fetchMetaculus() {
     {
       headers: {
         'Content-Type': 'application/json',
-        // 'Authorization': `Token ${process.env.METACULUS_API_KEY}`,
+        'Authorization': `Token ${process.env.METACULUS_API_KEY}`,
       },
     }
   )

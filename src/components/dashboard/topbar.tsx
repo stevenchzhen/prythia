@@ -6,17 +6,22 @@ import { DensityToggle } from './density-toggle'
 
 export function Topbar() {
   return (
-    <header className="flex h-14 items-center gap-4 border-b border-slate-800 bg-slate-950 px-6">
-      <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+    <header className="flex h-12 items-center gap-4 border-b border-[var(--primary-border)] bg-[#050506] px-5">
+      {/* Search */}
+      <div className="relative flex-1 max-w-sm">
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" />
         <Input
-          placeholder="Search events... ( / )"
-          className="pl-9 bg-slate-900 border-slate-700"
+          placeholder="Search events...  /"
+          className="h-8 pl-8 text-xs bg-[rgba(12,13,20,0.72)] border-[var(--primary-border)] text-zinc-300 placeholder:text-zinc-600 focus:border-[var(--primary-muted)] focus:ring-[var(--primary-subtle)] rounded-lg"
         />
       </div>
-      <DensityToggle />
-      {/* TODO: Filter button */}
-      {/* TODO: User menu */}
+
+      <div className="flex items-center gap-1">
+        <DensityToggle />
+        {/* TODO: Filter button */}
+        {/* TODO: Notification bell */}
+        {/* TODO: User avatar menu */}
+      </div>
     </header>
   )
 }

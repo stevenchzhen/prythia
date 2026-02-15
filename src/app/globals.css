@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -47,87 +47,58 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+/* ─── Prythia Design Tokens (matched to prythia.com) ─── */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.75rem;
+  --background: #050506;
+  --foreground: #f8f7f2;
+  --primary: #f7d74c;
+  --primary-strong: #ffd84a;
+  --surface: #0e0f14;
+  --surface-muted: #161823;
+  --stroke: #2a2d3b;
+
+  /* Consolidated gold alpha tokens */
+  --primary-ghost: rgba(247,215,76,0.04);
+  --primary-subtle: rgba(247,215,76,0.08);
+  --primary-border: rgba(247,215,76,0.12);
+  --primary-muted: rgba(247,215,76,0.20);
+  --primary-mid: rgba(247,215,76,0.50);
+  --primary-text: rgba(247,215,76,0.85);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
-/* ─── Prythia Custom Properties ─── */
-:root {
-  --prythia-bg: #0f172a;
-  --prythia-surface: #1e293b;
-  --prythia-border: #334155;
-  --prythia-accent: #e94560;
-  --prythia-ai: #8b5cf6;
-  --prythia-positive: #22c55e;
-  --prythia-negative: #ef4444;
-  --prythia-neutral: #94a3b8;
-  --prythia-text-primary: #f1f5f9;
-  --prythia-text-muted: #64748b;
+  --background: #050506;
+  --foreground: #f8f7f2;
+  --card: #0e0f14;
+  --card-foreground: #f8f7f2;
+  --popover: #0e0f14;
+  --popover-foreground: #f8f7f2;
+  --primary: #f7d74c;
+  --primary-foreground: #050506;
+  --secondary: #161823;
+  --secondary-foreground: #f8f7f2;
+  --muted: #161823;
+  --muted-foreground: #71717a;
+  --accent: #161823;
+  --accent-foreground: #f8f7f2;
+  --destructive: #ef4444;
+  --border: var(--primary-border);
+  --input: var(--primary-border);
+  --ring: #f7d74c;
+  --chart-1: #f7d74c;
+  --chart-2: #22c55e;
+  --chart-3: #71717a;
+  --chart-4: #ef4444;
+  --chart-5: #2a2d3b;
+  --sidebar: #050506;
+  --sidebar-foreground: #f8f7f2;
+  --sidebar-primary: #f7d74c;
+  --sidebar-primary-foreground: #050506;
+  --sidebar-accent: #161823;
+  --sidebar-accent-foreground: #f8f7f2;
+  --sidebar-border: rgba(247, 215, 76, 0.12);
+  --sidebar-ring: #f7d74c;
 }
 
 @layer base {
@@ -135,6 +106,86 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+}
+
+::selection {
+  background: rgba(247, 215, 76, 0.25);
+}
+
+/* ─── Grid Background (dot pattern from prythia.com) ─── */
+.bg-grid {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    var(--primary-subtle) 1px,
+    transparent 0
+  );
+  background-size: 28px 28px;
+}
+
+/* ─── Glass Surfaces ─── */
+.glass-surface {
+  background: rgba(12, 13, 20, 0.72);
+  border: 1px solid var(--primary-border);
+  backdrop-filter: blur(14px);
+}
+
+.glass-card {
+  background: rgba(12, 13, 20, 0.85);
+  border: 1px solid var(--primary-border);
+}
+
+.glass-card-hover:hover {
+  background: rgba(12, 13, 20, 0.9);
+  border-color: var(--primary-muted);
+  transform: translateY(-0.5px);
+}
+
+.glass-nested {
+  background: rgba(6, 7, 10, 0.75);
+  border: 1px solid var(--primary-border);
+}
+
+/* ─── Glow Effects ─── */
+.glow-ring {
+  box-shadow: 0 0 0 1px rgba(247, 215, 76, 0.18),
+    0 0 50px rgba(247, 215, 76, 0.18);
+}
+
+.glow-soft {
+  box-shadow: 0 0 30px rgba(247, 215, 76, 0.12);
+}
+
+/* ─── Monospace Accent ─── */
+.mono {
+  font-family: "JetBrains Mono", monospace;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary-subtle);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-muted);
 }

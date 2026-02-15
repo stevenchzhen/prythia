@@ -1,6 +1,5 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Event } from '@/lib/types'
 import { MovementBadge } from './movement-badge'
 import { Sparkline } from './sparkline'
@@ -11,29 +10,26 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, onClick }: EventCardProps) {
-  // "Biggest Movers" card variant
   return (
-    <Card
-      className="cursor-pointer hover:bg-slate-800 transition-colors bg-slate-900 border-slate-700"
+    <div
+      className="glass-card glass-card-hover rounded-xl p-5 cursor-pointer transition-all duration-150"
       onClick={() => onClick?.(event.id)}
     >
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium leading-tight line-clamp-2">
-          {event.title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold tabular-nums">
-            {((event.probability ?? 0) * 100).toFixed(0)}%
-          </span>
-          <MovementBadge change={event.prob_change_24h ?? 0} />
-        </div>
-        <Sparkline data={[]} />
-        <p className="text-xs text-slate-400">
-          ${((event.volume_24h ?? 0) / 1000).toFixed(0)}K vol
-        </p>
-      </CardContent>
-    </Card>
+      <p className="text-[13px] font-medium leading-tight line-clamp-2 text-zinc-300">
+        {event.title}
+      </p>
+      <div className="mt-3 flex items-baseline gap-2">
+        <span className="mono text-xl font-bold text-[rgba(247,215,76,0.95)]">
+          {((event.probability ?? 0) * 100).toFixed(0)}%
+        </span>
+        <MovementBadge change={event.prob_change_24h ?? 0} />
+      </div>
+      <div className="mt-2">
+        <Sparkline data={[]} color="#f7d74c" />
+      </div>
+      <p className="mono mt-2 text-xs text-zinc-600">
+        ${((event.volume_24h ?? 0) / 1000).toFixed(0)}K vol
+      </p>
+    </div>
   )
 }

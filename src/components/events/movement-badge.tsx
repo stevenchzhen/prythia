@@ -13,12 +13,12 @@ export function MovementBadge({ change, className }: MovementBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center text-xs font-medium tabular-nums',
+        'inline-flex items-center gap-0.5 mono text-xs font-medium',
         isNeutral
-          ? 'text-slate-400'
+          ? 'text-white/30'
           : isPositive
-          ? 'text-green-500'
-          : 'text-red-500',
+          ? 'text-[#22c55e]'
+          : 'text-[#ef4444]',
         className
       )}
     >
