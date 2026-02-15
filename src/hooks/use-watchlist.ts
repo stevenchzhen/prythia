@@ -1,35 +1,68 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import useSWR from 'swr'
-import type { WatchlistGroup, WatchlistItem, Event } from '@/lib/types'
+import { useState, useCallback, useEffect } from 'react'
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+const STORAGE_KEY = 'prythia_watchlist'
+
+function getStoredIds(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function setStoredIds(ids: string[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
+}
 
 export function useWatchlist() {
-  // TODO: Implement with Supabase client
-  // - Fetch watchlist groups and items
-  // - Optimistic add/remove
-  // - Drag-and-drop reordering
+  const [watchedIds, setWatchedIds] = useState<string[]>([])
 
-  const addToWatchlist = useCallback(async (eventId: string, groupId?: string) => {
-    // TODO: POST to Supabase
+  // Load from localStorage on mount
+  useEffect(() => {
+    setWatchedIds(getStoredIds())
   }, [])
 
-  const removeFromWatchlist = useCallback(async (eventId: string) => {
-    // TODO: DELETE from Supabase
+  const isWatched = useCallback(
+    (eventId: string) => watchedIds.includes(eventId),
+    [watchedIds]
+  )
+
+  const addToWatchlist = useCallback((eventId: string) => {
+    setWatchedIds((prev) => {
+      if (prev.includes(eventId)) return prev
+      const next = [...prev, eventId]
+      setStoredIds(next)
+      return next
+    })
   }, [])
 
-  const createGroup = useCallback(async (name: string) => {
-    // TODO: POST to Supabase
+  const removeFromWatchlist = useCallback((eventId: string) => {
+    setWatchedIds((prev) => {
+      const next = prev.filter((id) => id !== eventId)
+      setStoredIds(next)
+      return next
+    })
+  }, [])
+
+  const toggleWatchlist = useCallback((eventId: string) => {
+    setWatchedIds((prev) => {
+      const next = prev.includes(eventId)
+        ? prev.filter((id) => id !== eventId)
+        : [...prev, eventId]
+      setStoredIds(next)
+      return next
+    })
   }, [])
 
   return {
-    groups: [] as WatchlistGroup[],
-    items: [] as WatchlistItem[],
-    isLoading: false,
+    watchedIds,
+    isWatched,
     addToWatchlist,
     removeFromWatchlist,
-    createGroup,
+    toggleWatchlist,
   }
 }

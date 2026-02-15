@@ -9,16 +9,19 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 
+type TimeRange = '1D' | '1W' | '1M' | '3M' | '6M' | 'ALL'
+
 interface ProbabilityChartProps {
   data: Array<{
     timestamp: string
     probability: number
     volume?: number
   }>
-  timeRange?: '1D' | '1W' | '1M' | '3M' | '6M' | 'ALL'
+  timeRange?: TimeRange
+  onTimeRangeChange?: (range: TimeRange) => void
 }
 
-export function ProbabilityChart({ data, timeRange = '3M' }: ProbabilityChartProps) {
+export function ProbabilityChart({ data, timeRange = '3M', onTimeRangeChange }: ProbabilityChartProps) {
   return (
     <div className="space-y-3">
       <ResponsiveContainer width="100%" height={280}>
@@ -30,6 +33,10 @@ export function ProbabilityChart({ data, timeRange = '3M' }: ProbabilityChartPro
             fontFamily='"JetBrains Mono", monospace'
             tickLine={false}
             axisLine={{ stroke: 'rgba(247,215,76,0.08)' }}
+            tickFormatter={(v: string) => {
+              const d = new Date(v)
+              return `${d.getMonth() + 1}/${d.getDate()}`
+            }}
           />
           <YAxis
             domain={[0, 1]}
@@ -50,6 +57,11 @@ export function ProbabilityChart({ data, timeRange = '3M' }: ProbabilityChartPro
               fontFamily: '"JetBrains Mono", monospace',
               color: '#f8f7f2',
             }}
+            labelFormatter={(v) => {
+              const d = new Date(String(v))
+              return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            }}
+            formatter={(value) => [`${(Number(value) * 100).toFixed(1)}%`, 'Likelihood']}
           />
           <Line
             type="monotone"
@@ -67,6 +79,7 @@ export function ProbabilityChart({ data, timeRange = '3M' }: ProbabilityChartPro
         {(['1D', '1W', '1M', '3M', '6M', 'ALL'] as const).map((range) => (
           <button
             key={range}
+            onClick={() => onTimeRangeChange?.(range)}
             className={`mono px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors duration-150 ${
               range === timeRange
                 ? 'bg-[var(--primary-subtle)] text-[rgba(247,215,76,0.9)] border border-[var(--primary-muted)]'

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { NuqsAdapter } from 'nuqs/adapters/next/app'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import '@fontsource/space-grotesk/400.css'
 import '@fontsource/space-grotesk/500.css'
@@ -29,9 +30,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="antialiased">
-        <TooltipProvider>
-          {children}
-        </TooltipProvider>
+        <NuqsAdapter>
+          <TooltipProvider>
+            {children}
+          </TooltipProvider>
+        </NuqsAdapter>
       </body>
     </html>
   )

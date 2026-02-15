@@ -22,10 +22,10 @@ export function EventDetailPanel({ event, open, onClose }: EventDetailPanelProps
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
-          {/* TODO: Stat cards (current prob, 24h change, volume, days to resolution) */}
-          {/* TODO: Interactive probability chart */}
-          {/* TODO: Source breakdown table */}
-          {/* TODO: AI analysis block */}
+          {/* TODO: Stat cards (likelihood, 24h trend, market confidence, expected by) */}
+          {/* TODO: AI summary */}
+          {/* TODO: Likelihood over time chart */}
+          {/* TODO: Data sources table */}
           {/* TODO: Action buttons */}
         </div>
       </SheetContent>

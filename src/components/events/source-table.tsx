@@ -15,26 +15,26 @@ export function SourceTable({ sources, spread }: SourceTableProps) {
     const s = sources[0]
     return (
       <p className="text-sm text-slate-400">
-        Source: <span className="text-white capitalize">{s.platform}</span> — {((s.price ?? 0) * 100).toFixed(1)}%
+        Data source: <span className="text-white capitalize">{s.platform}</span> — {((s.price ?? 0) * 100).toFixed(1)}%
       </p>
     )
   }
 
   const spreadLabel = spread !== undefined
-    ? spread < 0.05 ? 'tight' : spread < 0.10 ? 'moderate' : 'wide'
+    ? spread < 0.05 ? 'strong' : spread < 0.10 ? 'moderate' : 'weak'
     : null
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-medium text-slate-300">Source Breakdown</h3>
+      <h3 className="text-sm font-medium text-slate-300">Data Sources</h3>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-slate-400 border-b border-slate-800">
-            <th className="text-left py-2">Platform</th>
-            <th className="text-right py-2">Price</th>
-            <th className="text-right py-2">Volume</th>
-            <th className="text-right py-2">Liquidity</th>
-            <th className="text-right py-2">Traders</th>
+            <th className="text-left py-2">Source</th>
+            <th className="text-right py-2">Likelihood</th>
+            <th className="text-right py-2">Activity</th>
+            <th className="text-right py-2">Market Depth</th>
+            <th className="text-right py-2">Participants</th>
           </tr>
         </thead>
         <tbody>
@@ -57,12 +57,12 @@ export function SourceTable({ sources, spread }: SourceTableProps) {
       </table>
       {spreadLabel && (
         <p className="text-xs text-slate-400">
-          Cross-platform spread: {(spread! * 100).toFixed(1)}% ({spreadLabel}{' '}
-          {spreadLabel === 'tight' ? '✓' : spreadLabel === 'moderate' ? '~' : '⚠'})
+          Source agreement: {(spread! * 100).toFixed(1)}% spread ({spreadLabel}{' '}
+          {spreadLabel === 'strong' ? '✓' : spreadLabel === 'moderate' ? '~' : '⚠'})
         </p>
       )}
       {sources.some(s => !s.volume_24h && s.volume_total) && (
-        <p className="text-xs text-slate-500">* Total volume (24h not available from this source)</p>
+        <p className="text-xs text-slate-500">* Total activity (24h not available from this source)</p>
       )}
     </div>
   )

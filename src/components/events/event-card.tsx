@@ -4,8 +4,12 @@ import type { Event } from '@/lib/types'
 import { MovementBadge } from './movement-badge'
 import { Sparkline } from './sparkline'
 
+interface EventWithSparkline extends Event {
+  sparkline_data?: number[]
+}
+
 interface EventCardProps {
-  event: Event
+  event: EventWithSparkline
   onClick?: (eventId: string) => void
 }
 
@@ -25,13 +29,13 @@ export function EventCard({ event, onClick }: EventCardProps) {
         <MovementBadge change={event.prob_change_24h ?? 0} />
       </div>
       <div className="mt-2">
-        <Sparkline data={[]} color="#f7d74c" />
+        <Sparkline data={event.sparkline_data ?? []} color="#f7d74c" />
       </div>
       <p className="mono mt-2 text-xs text-zinc-600">
         {event.volume_24h
-          ? `$${(event.volume_24h / 1000).toFixed(0)}K vol`
+          ? `$${(event.volume_24h / 1000).toFixed(0)}K confidence`
           : event.volume_total
-          ? `$${(event.volume_total / 1000).toFixed(0)}K total vol`
+          ? `$${(event.volume_total / 1000).toFixed(0)}K total`
           : '—'}
       </p>
     </div>

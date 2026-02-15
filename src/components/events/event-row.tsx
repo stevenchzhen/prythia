@@ -5,8 +5,12 @@ import { Sparkline } from './sparkline'
 import { QualityDots } from './quality-dots'
 import { MovementBadge } from './movement-badge'
 
+interface EventWithSparkline extends Event {
+  sparkline_data?: number[]
+}
+
 interface EventRowProps {
-  event: Event
+  event: EventWithSparkline
   density?: 'compact' | 'default' | 'expanded'
   onClick?: (eventId: string) => void
 }
@@ -36,7 +40,7 @@ export function EventRow({ event, density = 'default', onClick }: EventRowProps)
       </div>
 
       {/* Sparkline */}
-      <Sparkline data={[]} color="#f7d74c" />
+      <Sparkline data={event.sparkline_data ?? []} color="#f7d74c" />
 
       {/* Quality */}
       <QualityDots score={event.quality_score ?? 0} />

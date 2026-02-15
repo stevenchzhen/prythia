@@ -7,7 +7,7 @@ export function QualityDots({ score, maxDots = 4 }: QualityDotsProps) {
   const filled = Math.round(score * maxDots)
 
   return (
-    <span className="inline-flex gap-0.5" title={`Quality: ${(score * 100).toFixed(0)}%`}>
+    <span className="inline-flex gap-0.5" title={`Signal strength: ${(score * 100).toFixed(0)}%`}>
       {Array.from({ length: maxDots }).map((_, i) => (
         <span
           key={i}

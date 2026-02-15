@@ -8,7 +8,7 @@ export function ProbabilitySlider() {
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-slate-300">Probability Range</label>
+      <label className="text-sm font-medium text-slate-300">Likelihood Range</label>
       <Slider
         min={0}
         max={100}
