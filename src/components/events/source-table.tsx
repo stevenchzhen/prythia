@@ -42,7 +42,13 @@ export function SourceTable({ sources, spread }: SourceTableProps) {
             <tr key={s.platform} className="border-b border-slate-800/50">
               <td className="py-2 capitalize">{s.platform}</td>
               <td className="py-2 text-right tabular-nums">{((s.price ?? 0) * 100).toFixed(1)}%</td>
-              <td className="py-2 text-right tabular-nums">${((s.volume_24h ?? 0) / 1000).toFixed(0)}K</td>
+              <td className="py-2 text-right tabular-nums">
+                {s.volume_24h
+                  ? `$${(s.volume_24h / 1000).toFixed(0)}K`
+                  : s.volume_total
+                  ? `$${(s.volume_total / 1000).toFixed(0)}K*`
+                  : '—'}
+              </td>
               <td className="py-2 text-right tabular-nums">${((s.liquidity ?? 0) / 1000).toFixed(0)}K</td>
               <td className="py-2 text-right tabular-nums">{(s.num_traders ?? 0).toLocaleString()}</td>
             </tr>
@@ -54,6 +60,9 @@ export function SourceTable({ sources, spread }: SourceTableProps) {
           Cross-platform spread: {(spread! * 100).toFixed(1)}% ({spreadLabel}{' '}
           {spreadLabel === 'tight' ? '✓' : spreadLabel === 'moderate' ? '~' : '⚠'})
         </p>
+      )}
+      {sources.some(s => !s.volume_24h && s.volume_total) && (
+        <p className="text-xs text-slate-500">* Total volume (24h not available from this source)</p>
       )}
     </div>
   )

@@ -50,6 +50,43 @@ function applyStalenessPenalty(sources: SourceData[]): SourceData[] {
 }
 
 /**
+ * Derive 24h volume from volume_total snapshots for platforms that don't
+ * provide volume_24h directly (e.g. Polymarket).
+ */
+async function derive24hVolume(eventId: string, sources: SourceData[]): Promise<number> {
+  let totalVolume24h = 0
+
+  for (const source of sources) {
+    // If the platform already provides 24h volume, use it
+    if (source.volume_24h > 0) {
+      totalVolume24h += source.volume_24h
+      continue
+    }
+
+    // Skip sources with no total volume (e.g. Metaculus)
+    if (!source.volume_total || source.volume_total === 0) continue
+
+    // Look up the snapshot from ~24h ago to compute the delta
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { data: oldSnapshot } = await supabaseAdmin
+      .from('probability_snapshots')
+      .select('volume')
+      .eq('event_id', eventId)
+      .eq('source', source.platform)
+      .lte('captured_at', twentyFourHoursAgo)
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (oldSnapshot?.volume != null && source.volume_total > oldSnapshot.volume) {
+      totalVolume24h += source.volume_total - oldSnapshot.volume
+    }
+  }
+
+  return totalVolume24h
+}
+
+/**
  * Aggregate event data from all source contracts, update the events table,
  * and insert a probability snapshot.
  */
@@ -71,8 +108,8 @@ export async function aggregateEvent(eventId: string) {
   // 3. Calculate aggregated probability
   const probability = volumeWeightedAverage(adjustedSources)
 
-  // 4. Calculate totals
-  const totalVolume24h = sources.reduce((sum, s) => sum + (s.volume_24h || 0), 0)
+  // 4. Calculate totals — derive 24h volume from snapshots when API doesn't provide it
+  const totalVolume24h = await derive24hVolume(eventId, sources as SourceData[])
   const totalVolume = sources.reduce((sum, s) => sum + (s.volume_total || 0), 0)
   const totalLiquidity = sources.reduce((sum, s) => sum + (s.liquidity || 0), 0)
   const totalTraders = sources.reduce((sum, s) => sum + (s.num_traders || 0), 0)
@@ -88,11 +125,17 @@ export async function aggregateEvent(eventId: string) {
     return Math.min(min, ago)
   }, Infinity)
 
+  const hasMarketSources = sources.some(
+    (s) => s.platform === 'polymarket' || s.platform === 'kalshi'
+  )
+
   const qualityScore = calculateQualityScore({
     totalVolume: totalVolume,
     sourceCount: sources.length,
     lastTradeMinutesAgo: lastTradeMinutesAgo === Infinity ? 1440 : lastTradeMinutesAgo,
     crossPlatformSpread: spread,
+    totalTraders: totalTraders,
+    hasMarketSources,
   })
 
   // 7. Update the events table with denormalized data
@@ -132,7 +175,7 @@ export async function aggregateEvent(eventId: string) {
     console.error(`Snapshot insert error [${eventId}]:`, snapshotError)
   }
 
-  // Also insert per-source snapshots
+  // Also insert per-source snapshots (store volume_total for 24h delta computation)
   for (const source of sources) {
     if (source.price === null) continue
     await supabaseAdmin
@@ -142,7 +185,7 @@ export async function aggregateEvent(eventId: string) {
         source: source.platform,
         captured_at: new Date().toISOString(),
         probability: source.price,
-        volume: source.volume_24h,
+        volume: source.volume_total || source.volume_24h,
         liquidity: source.liquidity,
         num_traders: source.num_traders,
       })

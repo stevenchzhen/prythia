@@ -106,36 +106,36 @@ async function fetchHighSignalContracts(): Promise<SourceContract[]> {
 
   const skipSet = new Set([...mappedSet, ...linkedSet])
 
-  // Fetch Polymarket contracts with decent liquidity
+  // Fetch Polymarket contracts — lowered threshold to capture more markets
   const { data: poly } = await supabase
     .from('source_contracts')
     .select('platform, platform_contract_id, contract_title, price, liquidity, volume_total, num_traders')
     .eq('platform', 'polymarket')
     .eq('is_active', true)
     .is('event_id', null)
-    .gt('liquidity', 5000)
+    .gt('liquidity', 500)
     .order('liquidity', { ascending: false })
-    .limit(300)
+    .limit(500)
 
-  // Fetch Kalshi contracts not yet mapped
+  // Fetch Kalshi contracts — lowered threshold to match Polymarket coverage
   const { data: kalshi } = await supabase
     .from('source_contracts')
     .select('platform, platform_contract_id, contract_title, price, liquidity, volume_total, num_traders')
     .eq('platform', 'kalshi')
     .eq('is_active', true)
     .is('event_id', null)
-    .gt('liquidity', 100)
+    .gt('liquidity', 50)
     .order('liquidity', { ascending: false })
-    .limit(300)
+    .limit(500)
 
-  // Fetch Metaculus with most forecasters, not yet mapped
+  // Fetch Metaculus — raised threshold so forecasting questions don't drown out markets
   const { data: metaculus } = await supabase
     .from('source_contracts')
     .select('platform, platform_contract_id, contract_title, price, liquidity, volume_total, num_traders')
     .eq('platform', 'metaculus')
     .eq('is_active', true)
     .is('event_id', null)
-    .gt('num_traders', 10)
+    .gt('num_traders', 40)
     .order('num_traders', { ascending: false })
     .limit(200)
 

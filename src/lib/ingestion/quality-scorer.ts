@@ -2,9 +2,9 @@
  * Data Quality Score (0.0 - 1.0)
  *
  * Composite of four factors, each worth 0.25:
- * - Volume depth: how much money is behind this price
+ * - Signal depth: financial volume OR forecaster count (whichever is relevant)
  * - Source diversity: how many platforms cover it
- * - Freshness: recency of last trade
+ * - Freshness: recency of last trade/update
  * - Spread tightness: how much platforms agree
  */
 
@@ -13,14 +13,32 @@ interface QualityInputs {
   sourceCount: number
   lastTradeMinutesAgo: number
   crossPlatformSpread: number // max - min probability across sources
+  totalTraders?: number       // forecaster count (especially relevant for non-market platforms)
+  hasMarketSources?: boolean  // whether any source is a trading market (Polymarket, Kalshi)
 }
 
 export function calculateQualityScore(inputs: QualityInputs): number {
-  const { totalVolume, sourceCount, lastTradeMinutesAgo, crossPlatformSpread } = inputs
+  const {
+    totalVolume,
+    sourceCount,
+    lastTradeMinutesAgo,
+    crossPlatformSpread,
+    totalTraders = 0,
+    hasMarketSources = totalVolume > 0,
+  } = inputs
 
-  // Volume depth (0 - 0.25)
-  // $1M+ = full score, scales linearly below
-  const volumeScore = Math.min(totalVolume / 1_000_000, 1) * 0.25
+  // Signal depth (0 - 0.25)
+  // For market sources: $1M+ = full score
+  // For forecast-only: 500+ forecasters = full score
+  // Blend both when we have both types of data
+  let depthScore: number
+  if (hasMarketSources) {
+    depthScore = Math.min(totalVolume / 1_000_000, 1) * 0.25
+  } else if (totalTraders > 0) {
+    depthScore = Math.min(totalTraders / 500, 1) * 0.25
+  } else {
+    depthScore = 0
+  }
 
   // Source diversity (0 - 0.25)
   // 3+ sources = full score
@@ -28,13 +46,15 @@ export function calculateQualityScore(inputs: QualityInputs): number {
 
   // Freshness (0 - 0.25)
   // <5 min = full score, decays over 24 hours
+  // For forecast-only sources, use a more generous window (forecasts update less often)
+  const freshnessDecayMinutes = hasMarketSources ? 1440 : 4320 // 24h for markets, 72h for forecasts
   const freshnessScore =
     lastTradeMinutesAgo <= 5
       ? 0.25
       : lastTradeMinutesAgo <= 60
       ? 0.25 * 0.9
-      : lastTradeMinutesAgo <= 1440
-      ? 0.25 * (1 - lastTradeMinutesAgo / 1440)
+      : lastTradeMinutesAgo <= freshnessDecayMinutes
+      ? 0.25 * (1 - lastTradeMinutesAgo / freshnessDecayMinutes)
       : 0
 
   // Spread tightness (0 - 0.25)
@@ -48,5 +68,5 @@ export function calculateQualityScore(inputs: QualityInputs): number {
       ? 0
       : 0.25 * (1 - (crossPlatformSpread - 0.02) / 0.13)
 
-  return Math.round((volumeScore + diversityScore + freshnessScore + spreadScore) * 100) / 100
+  return Math.round((depthScore + diversityScore + freshnessScore + spreadScore) * 100) / 100
 }

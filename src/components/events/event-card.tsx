@@ -28,7 +28,11 @@ export function EventCard({ event, onClick }: EventCardProps) {
         <Sparkline data={[]} color="#f7d74c" />
       </div>
       <p className="mono mt-2 text-xs text-zinc-600">
-        ${((event.volume_24h ?? 0) / 1000).toFixed(0)}K vol
+        {event.volume_24h
+          ? `$${(event.volume_24h / 1000).toFixed(0)}K vol`
+          : event.volume_total
+          ? `$${(event.volume_total / 1000).toFixed(0)}K total vol`
+          : '—'}
       </p>
     </div>
   )
