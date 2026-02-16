@@ -3,7 +3,7 @@
 import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
-import { ArrowLeft, Bookmark, Calendar, BarChart3, Users, Star } from 'lucide-react'
+import { ArrowLeft, Bookmark, Calendar, BarChart3, Star } from 'lucide-react'
 import { format } from 'date-fns'
 import { useEventDetail } from '@/hooks/use-event-detail'
 import { useWatchlist } from '@/hooks/use-watchlist'
@@ -34,6 +34,11 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
     { refreshInterval: 60_000 }
   )
 
+  const resolutionDate = event?.resolution_date
+  const daysToResolution = resolutionDate
+    ? Math.max(0, Math.ceil((new Date(resolutionDate).getTime() - new Date().getTime()) / 86400000))
+    : null
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -57,9 +62,6 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
   }
 
   const watched = isWatched(event.id)
-  const daysToResolution = event.resolution_date
-    ? Math.max(0, Math.ceil((new Date(event.resolution_date).getTime() - Date.now()) / 86400000))
-    : null
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

@@ -6,7 +6,6 @@ import useSWR from 'swr'
 import { TrendingUp, TrendingDown, ChevronDown } from 'lucide-react'
 import { useEvents } from '@/hooks/use-events'
 import { EventRow } from '@/components/events/event-row'
-import { EventCard } from '@/components/events/event-card'
 import { CategoryTabs } from '@/components/filters/category-tabs'
 import type { Event } from '@/lib/types'
 

@@ -41,7 +41,7 @@ export async function GET(
       ...event,
       sources: sources ?? [],
     })
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch event detail' } },
       { status: 500 }

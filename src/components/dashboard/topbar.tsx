@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, SlidersHorizontal } from 'lucide-react'
 import { useQueryState, parseAsString } from 'nuqs'
 import { Input } from '@/components/ui/input'
@@ -12,12 +12,7 @@ export function Topbar() {
   const [localSearch, setLocalSearch] = useState(search ?? '')
   const [filterOpen, setFilterOpen] = useState(false)
 
-  // Sync from URL → local
-  useEffect(() => {
-    setLocalSearch(search ?? '')
-  }, [search])
-
-  // Debounced write to URL
+  // Debounced write from local input → URL
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(localSearch || null)

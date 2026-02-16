@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQueryState, parseAsInteger, parseAsString } from 'nuqs'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -27,21 +27,23 @@ export function FilterPanel({ open, onClose }: FilterPanelProps) {
   const [qualityMin, setQualityMin] = useQueryState('qualityMin', parseAsInteger)
   const [category, setCategory] = useQueryState('category', parseAsString.withDefault('all'))
 
-  // Local state for sliders
+  // Local state for sliders — re-initialized when panel opens via key prop
   const [localProbRange, setLocalProbRange] = useState([probMin ?? 0, probMax ?? 100])
   const [localVolumeMin, setLocalVolumeMin] = useState(volumeMin ?? 0)
   const [localQualityMin, setLocalQualityMin] = useState(qualityMin ?? 0)
   const [localCategory, setLocalCategory] = useState(category)
 
-  // Sync URL → local when panel opens
-  useEffect(() => {
-    if (open) {
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen) {
+      // Sync local state from URL when opening
       setLocalProbRange([probMin ?? 0, probMax ?? 100])
       setLocalVolumeMin(volumeMin ?? 0)
       setLocalQualityMin(qualityMin ?? 0)
       setLocalCategory(category)
+    } else {
+      onClose()
     }
-  }, [open, probMin, probMax, volumeMin, qualityMin, category])
+  }
 
   const handleApply = () => {
     setProbMin(localProbRange[0] > 0 ? localProbRange[0] : null)
@@ -62,7 +64,7 @@ export function FilterPanel({ open, onClose }: FilterPanelProps) {
   }
 
   return (
-    <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent className="w-80 bg-[#0a0b10] border-[var(--primary-ghost)]">
         <SheetHeader>
           <SheetTitle className="text-zinc-200">Filters</SheetTitle>

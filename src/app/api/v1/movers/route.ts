@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       gainers: (gainers as Event[]) ?? [],
       losers: (losers as Event[]) ?? [],
     })
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch movers' } },
       { status: 500 }

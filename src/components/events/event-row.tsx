@@ -15,7 +15,7 @@ interface EventRowProps {
   onClick?: (eventId: string) => void
 }
 
-export function EventRow({ event, density = 'default', onClick }: EventRowProps) {
+export function EventRow({ event, onClick }: EventRowProps) {
   return (
     <div
       className="flex items-center gap-4 px-4 py-3 border-b border-[var(--primary-ghost)] hover:bg-[var(--primary-ghost)] cursor-pointer transition-colors duration-150 group"

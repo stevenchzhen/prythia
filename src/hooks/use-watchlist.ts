@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 
 const STORAGE_KEY = 'prythia_watchlist'
 
-function getStoredIds(): string[] {
+// Simple external store for localStorage-backed watchlist
+let listeners: Array<() => void> = []
+
+function getSnapshot(): string[] {
   if (typeof window === 'undefined') return []
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -14,17 +17,25 @@ function getStoredIds(): string[] {
   }
 }
 
+function getServerSnapshot(): string[] {
+  return []
+}
+
+function subscribe(listener: () => void) {
+  listeners.push(listener)
+  return () => {
+    listeners = listeners.filter((l) => l !== listener)
+  }
+}
+
 function setStoredIds(ids: string[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
+  // Notify all subscribers
+  listeners.forEach((l) => l())
 }
 
 export function useWatchlist() {
-  const [watchedIds, setWatchedIds] = useState<string[]>([])
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    setWatchedIds(getStoredIds())
-  }, [])
+  const watchedIds = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
   const isWatched = useCallback(
     (eventId: string) => watchedIds.includes(eventId),
@@ -32,30 +43,24 @@ export function useWatchlist() {
   )
 
   const addToWatchlist = useCallback((eventId: string) => {
-    setWatchedIds((prev) => {
-      if (prev.includes(eventId)) return prev
-      const next = [...prev, eventId]
-      setStoredIds(next)
-      return next
-    })
+    const current = getSnapshot()
+    if (!current.includes(eventId)) {
+      setStoredIds([...current, eventId])
+    }
   }, [])
 
   const removeFromWatchlist = useCallback((eventId: string) => {
-    setWatchedIds((prev) => {
-      const next = prev.filter((id) => id !== eventId)
-      setStoredIds(next)
-      return next
-    })
+    const current = getSnapshot()
+    setStoredIds(current.filter((id) => id !== eventId))
   }, [])
 
   const toggleWatchlist = useCallback((eventId: string) => {
-    setWatchedIds((prev) => {
-      const next = prev.includes(eventId)
-        ? prev.filter((id) => id !== eventId)
-        : [...prev, eventId]
-      setStoredIds(next)
-      return next
-    })
+    const current = getSnapshot()
+    if (current.includes(eventId)) {
+      setStoredIds(current.filter((id) => id !== eventId))
+    } else {
+      setStoredIds([...current, eventId])
+    }
   }, [])
 
   return {

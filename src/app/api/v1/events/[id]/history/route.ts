@@ -58,7 +58,7 @@ export async function GET(
         volume: d.volume,
       })),
     })
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch history' } },
       { status: 500 }
