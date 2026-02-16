@@ -12,7 +12,7 @@ interface SavedFiltersProps {
   onDelete?: (id: string) => void
 }
 
-export function SavedFilters({ filters, onApply, onDelete }: SavedFiltersProps) {
+export function SavedFilters({ filters, onApply, onDelete: _onDelete }: SavedFiltersProps) {
   if (filters.length === 0) return null
 
   return (

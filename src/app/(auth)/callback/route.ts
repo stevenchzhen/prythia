@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/feed'
+  const _next = searchParams.get('next') ?? '/feed'
 
   if (code) {
     // TODO: Exchange code for session via Supabase

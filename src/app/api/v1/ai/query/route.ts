@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   // TODO: AI query endpoint
   // 1. Authenticate
   // 2. Parse request body { question, context: { watchlist, categories, max_events } }

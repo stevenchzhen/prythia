@@ -13,7 +13,7 @@ interface Message {
 }
 
 export function AIChat() {
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, _setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
 
   // TODO: Implement AI chat

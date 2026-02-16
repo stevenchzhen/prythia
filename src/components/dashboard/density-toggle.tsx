@@ -1,6 +1,6 @@
 'use client'
 
-import { LayoutList, LayoutGrid, AlignJustify } from 'lucide-react'
+import { LayoutList } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,

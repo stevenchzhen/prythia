@@ -27,7 +27,7 @@ export async function updateSession(request: NextRequest) {
 
   // Refreshes the auth token if needed
   const {
-    data: { user },
+    data: { user: _user },
   } = await supabase.auth.getUser()
 
   // Auth wall disabled for now — no login required to access dashboard

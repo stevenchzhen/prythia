@@ -9,7 +9,7 @@ interface AddToWatchlistProps {
   onToggle?: () => void
 }
 
-export function AddToWatchlist({ eventId, isWatched = false, onToggle }: AddToWatchlistProps) {
+export function AddToWatchlist({ eventId: _eventId, isWatched = false, onToggle }: AddToWatchlistProps) {
   // TODO: Toggle watchlist membership, pick group via dropdown
 
   return (
