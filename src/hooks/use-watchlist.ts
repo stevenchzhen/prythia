@@ -4,17 +4,35 @@ import { useCallback, useSyncExternalStore } from 'react'
 
 const STORAGE_KEY = 'prythia_watchlist'
 
-// Simple external store for localStorage-backed watchlist
+// Cached snapshot — only updated when we write or on storage events
+let cachedIds: string[] = []
+
+function hydrate() {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    cachedIds = raw ? JSON.parse(raw) : []
+  } catch {
+    cachedIds = []
+  }
+}
+
+// Hydrate once on load
+if (typeof window !== 'undefined') {
+  hydrate()
+  // Listen for changes from other tabs
+  window.addEventListener('storage', (e) => {
+    if (e.key === STORAGE_KEY) {
+      hydrate()
+      listeners.forEach((l) => l())
+    }
+  })
+}
+
 let listeners: Array<() => void> = []
 
 function getSnapshot(): string[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+  return cachedIds
 }
 
 function getServerSnapshot(): string[] {
@@ -29,8 +47,8 @@ function subscribe(listener: () => void) {
 }
 
 function setStoredIds(ids: string[]) {
+  cachedIds = ids
   localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
-  // Notify all subscribers
   listeners.forEach((l) => l())
 }
 
@@ -43,23 +61,20 @@ export function useWatchlist() {
   )
 
   const addToWatchlist = useCallback((eventId: string) => {
-    const current = getSnapshot()
-    if (!current.includes(eventId)) {
-      setStoredIds([...current, eventId])
+    if (!cachedIds.includes(eventId)) {
+      setStoredIds([...cachedIds, eventId])
     }
   }, [])
 
   const removeFromWatchlist = useCallback((eventId: string) => {
-    const current = getSnapshot()
-    setStoredIds(current.filter((id) => id !== eventId))
+    setStoredIds(cachedIds.filter((id) => id !== eventId))
   }, [])
 
   const toggleWatchlist = useCallback((eventId: string) => {
-    const current = getSnapshot()
-    if (current.includes(eventId)) {
-      setStoredIds(current.filter((id) => id !== eventId))
+    if (cachedIds.includes(eventId)) {
+      setStoredIds(cachedIds.filter((id) => id !== eventId))
     } else {
-      setStoredIds([...current, eventId])
+      setStoredIds([...cachedIds, eventId])
     }
   }, [])
 
