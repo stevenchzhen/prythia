@@ -1,15 +1,23 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = getSupabaseAdmin()
+  const eventIds = request.nextUrl.searchParams.get('event_ids')
+  const filterIds = eventIds ? eventIds.split(',').filter(Boolean) : null
 
   try {
-    // Fetch all active events
-    const { data: events, error: eventsError } = await supabase
+    // Fetch events (optionally filtered to watchlist)
+    let eventsQuery = supabase
       .from('events')
-      .select('id, category, probability, volume_24h, volume_total, prob_change_24h, source_count, is_active')
+      .select('id, category, probability, volume_24h, volume_total, prob_change_24h, source_count, resolution_status, is_active')
       .eq('is_active', true)
+
+    if (filterIds && filterIds.length > 0) {
+      eventsQuery = eventsQuery.in('id', filterIds)
+    }
+
+    const { data: events, error: eventsError } = await eventsQuery
 
     if (eventsError) {
       return NextResponse.json(
@@ -49,10 +57,16 @@ export async function GET() {
       .sort((a, b) => b.count - a.count)
 
     // Fetch source contracts grouped by platform
-    const { data: contracts, error: contractsError } = await supabase
+    let contractsQuery = supabase
       .from('source_contracts')
-      .select('platform, price, volume_total, is_active')
+      .select('platform, price, volume_total, event_id, is_active')
       .eq('is_active', true)
+
+    if (filterIds && filterIds.length > 0) {
+      contractsQuery = contractsQuery.in('event_id', filterIds)
+    }
+
+    const { data: contracts, error: contractsError } = await contractsQuery
 
     if (contractsError) {
       return NextResponse.json(
@@ -90,16 +104,51 @@ export async function GET() {
       probBuckets[idx].count++
     }
 
+    // Calibration data — resolved events
+    let calibrationQuery = supabase
+      .from('events')
+      .select('id, probability, resolution_status')
+      .in('resolution_status', ['resolved_yes', 'resolved_no'])
+
+    if (filterIds && filterIds.length > 0) {
+      calibrationQuery = calibrationQuery.in('id', filterIds)
+    }
+
+    const { data: resolved } = await calibrationQuery
+
+    const calibrationBuckets = Array.from({ length: 10 }, (_, i) => ({
+      bin: `${i * 10}-${(i + 1) * 10}%`,
+      midpoint: i * 10 + 5,
+      total: 0,
+      resolved_yes: 0,
+      actual_rate: 0,
+    }))
+
+    for (const e of resolved ?? []) {
+      const p = e.probability ?? 0
+      const idx = Math.min(Math.floor(p * 10), 9)
+      calibrationBuckets[idx].total++
+      if (e.resolution_status === 'resolved_yes') {
+        calibrationBuckets[idx].resolved_yes++
+      }
+    }
+
+    for (const b of calibrationBuckets) {
+      b.actual_rate = b.total > 0 ? Math.round((b.resolved_yes / b.total) * 100) : 0
+    }
+
     return NextResponse.json({
       totals: {
         events: totalEvents,
         volume_24h: totalVolume,
         avg_probability: avgProbability,
         sources: totalSources,
+        resolved: (resolved ?? []).length,
       },
       by_category: byCategory,
       by_platform: byPlatform,
       prob_distribution: probBuckets,
+      calibration: calibrationBuckets,
     })
   } catch {
     return NextResponse.json(
