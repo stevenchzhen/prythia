@@ -17,6 +17,10 @@
       "schedule": "*/30 * * * *"
     },
     {
+      "path": "/api/cron/cross-match",
+      "schedule": "15,45 * * * *"
+    },
+    {
       "path": "/api/cron/ai-analysis",
       "schedule": "0 6 * * *"
     },

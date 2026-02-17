@@ -4,10 +4,10 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
  * Contract-to-event matching.
  *
  * v0: Manual mapping via event_source_mappings table.
- * v1: Automated matching using embedding similarity (cosine > 0.85).
+ * v1: Embedding similarity (cosine > 0.85) with FTS fallback.
  *
  * Same event, different wording across platforms:
- * - Exact resolution date match + semantic similarity > 0.85 → auto-merge
+ * - Semantic similarity > 0.85 → auto-merge
  * - Same topic, different time horizon → separate events, linked as related
  * - Ambiguous overlap → flag for human review
  */
@@ -39,13 +39,46 @@ export async function findEventMapping(
 
 /**
  * Suggest potential event matches for an unmapped contract.
- * Uses title similarity for v0 (upgrade to embeddings in v1).
+ * Uses embedding similarity via pgvector, falls back to FTS if no VOYAGE_API_KEY.
  */
 export async function suggestEventMatches(
   candidate: ContractCandidate,
   limit: number = 5
 ): Promise<Array<{ event_id: string; title: string; score: number }>> {
-  // TODO: Implement fuzzy matching via pg_trgm or embedding similarity
+  // Try embedding-based matching first
+  if (process.env.VOYAGE_API_KEY) {
+    try {
+      const { generateEmbedding, buildContractEmbeddingText } = await import(
+        '@/lib/embeddings/voyage'
+      )
+      const text = buildContractEmbeddingText({
+        contract_title: candidate.title,
+        platform: candidate.platform,
+      })
+      const embedding = await generateEmbedding(text, 'query')
+
+      const { data: matches } = await supabaseAdmin.rpc(
+        'match_events_by_embedding',
+        {
+          query_embedding: JSON.stringify(embedding),
+          match_threshold: 0.7,
+          match_count: limit,
+        }
+      )
+
+      if (matches && matches.length > 0) {
+        return matches.map((m: { event_id: string; title: string; similarity: number }) => ({
+          event_id: m.event_id,
+          title: m.title,
+          score: m.similarity,
+        }))
+      }
+    } catch (err) {
+      console.warn('[Deduplicator] Embedding match failed, falling back to FTS:', err)
+    }
+  }
+
+  // Fallback: full-text search
   const { data } = await supabaseAdmin
     .from('events')
     .select('id, title')
@@ -55,6 +88,6 @@ export async function suggestEventMatches(
   return (data ?? []).map((e) => ({
     event_id: e.id,
     title: e.title,
-    score: 0, // TODO: Calculate actual similarity score
+    score: 0,
   }))
 }

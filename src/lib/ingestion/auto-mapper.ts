@@ -121,7 +121,8 @@ async function fetchUnmappedContracts(): Promise<SourceContract[]> {
     .not('contract_title', 'ilike', '%price direction%')
     .not('contract_title', 'ilike', '%price on %')
     .not('contract_title', 'ilike', '%reaches $%')
-    // Sports noise
+    .not('contract_title', 'ilike', '%Up or Down%')
+    // Sports & esports noise
     .not('contract_title', 'ilike', '%Super Bowl%')
     .not('contract_title', 'ilike', '%NFL%')
     .not('contract_title', 'ilike', '%NBA%')
@@ -133,6 +134,14 @@ async function fetchUnmappedContracts(): Promise<SourceContract[]> {
     .not('contract_title', 'ilike', '%Grand Prix%')
     .not('contract_title', 'ilike', '%World Series%')
     .not('contract_title', 'ilike', '%Stanley Cup%')
+    .not('contract_title', 'ilike', '% vs %')
+    .not('contract_title', 'ilike', '%Counter-Strike%')
+    .not('contract_title', 'ilike', '%Dota 2%')
+    .not('contract_title', 'ilike', '%Map Winner%')
+    .not('contract_title', 'ilike', '%Map Handicap%')
+    .not('contract_title', 'ilike', '%O/U %')
+    .not('contract_title', 'ilike', '%Set 1 Winner%')
+    .not('contract_title', 'ilike', '%temperature%')
     .order('liquidity', { ascending: false })
     .limit(1200)
 
