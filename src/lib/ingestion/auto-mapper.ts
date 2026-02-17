@@ -128,8 +128,35 @@ async function fetchUnmappedContracts(): Promise<SourceContract[]> {
     .order('num_traders', { ascending: false })
     .limit(200)
 
-  const all = [...(poly || []), ...(kalshi || []), ...(metaculus || [])] as SourceContract[]
+  // Round-robin interleave so each batch has contracts from all platforms
+  const sources = [poly || [], kalshi || [], metaculus || []]
+  const all: SourceContract[] = []
+  const maxLen = Math.max(...sources.map(s => s.length))
+  for (let i = 0; i < maxLen; i++) {
+    for (const source of sources) {
+      if (i < source.length) all.push(source[i] as SourceContract)
+    }
+  }
   return all.filter(c => !skipSet.has(`${c.platform}:${c.platform_contract_id}`))
+}
+
+async function fetchExistingEvents(): Promise<string> {
+  const { data: events } = await supabaseAdmin
+    .from('events')
+    .select('id, title, category, resolution_date')
+    .eq('is_active', true)
+    .eq('resolution_status', 'open')
+    .order('updated_at', { ascending: false })
+    .limit(500)
+
+  if (!events || events.length === 0) return ''
+
+  const lines = events.map((e, i) => {
+    const resolve = e.resolution_date ? `, resolves ${e.resolution_date}` : ''
+    return `${i + 1}. ${e.id} — "${e.title}" (${e.category}${resolve})`
+  }).join('\n')
+
+  return `\nEXISTING EVENTS (reuse these IDs when a contract matches):\n${lines}\n`
 }
 
 async function proposeEvents(contracts: SourceContract[]): Promise<ProposedEvent[]> {
@@ -137,13 +164,18 @@ async function proposeEvents(contracts: SourceContract[]): Promise<ProposedEvent
     `${i + 1}. [${c.platform}] "${c.contract_title}" (id: ${c.platform_contract_id}, price: ${c.price}, liq: ${c.liquidity}, traders: ${c.num_traders})`
   ).join('\n')
 
+  const existingEventsSection = await fetchExistingEvents()
+
   const prompt = `You are a prediction market analyst for Prythia, a prediction market intelligence platform.
 
 Given these source contracts from prediction market platforms, identify CANONICAL EVENTS — unique real-world questions that may appear on multiple platforms with different wording.
 
 ${TAXONOMY}
-
+${existingEventsSection}
 Rules:
+- FIRST check if a contract matches an EXISTING EVENT above. If so, reuse that event_id exactly.
+- Only create a NEW event if no existing event matches.
+- When reusing an existing event, still include it in the output with the same event_id so the contract gets linked.
 - Group contracts about the SAME real-world question into one canonical event (cross-platform deduplication)
 - Skip trivial/noise contracts (crypto price 5-min bets, sports matches, entertainment gossip)
 - Focus on: geopolitics, trade, economics, policy, elections, technology, science — the things that matter to analysts and quant funds
