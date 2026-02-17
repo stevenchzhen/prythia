@@ -261,6 +261,7 @@ export async function aggregateEvent(eventId: string) {
   }
 
   // 9. Insert divergence snapshots for each platform pair
+  console.log(`[Divergence] Event ${eventId}: ${dedupedSources.length} deduped sources — platforms: ${dedupedSources.map(s => `${s.platform}(${s.price})`).join(', ')}`)
   if (dedupedSources.length > 1) {
     const now = new Date().toISOString()
     for (let i = 0; i < dedupedSources.length; i++) {
@@ -274,6 +275,7 @@ export async function aggregateEvent(eventId: string) {
         const pairSpread = Math.abs(first.price - second.price)
         const higherPlatform = first.price >= second.price ? first.platform : second.platform
 
+        console.log(`[Divergence] Inserting pair: ${first.platform}(${first.price}) vs ${second.platform}(${second.price}), spread=${pairSpread}`)
         const { error: divError } = await supabaseAdmin
           .from('divergence_snapshots')
           .insert({
@@ -288,6 +290,8 @@ export async function aggregateEvent(eventId: string) {
           })
         if (divError) {
           console.error(`Divergence snapshot error [${eventId}/${first.platform}-${second.platform}]:`, divError)
+        } else {
+          console.log(`[Divergence] Inserted successfully`)
         }
       }
     }
