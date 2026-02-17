@@ -280,12 +280,14 @@ async function insertEvents(events: ProposedEvent[]) {
     if (!VALID_CATEGORIES.includes(event.category)) continue
 
     if (!existingIds.has(event.event_id)) {
+      // Try with original slug, fall back to slug-from-event-id on conflict
+      let slug = event.slug
       const { error: eventError } = await supabaseAdmin
         .from('events')
         .upsert({
           id: event.event_id,
           title: event.title,
-          slug: event.slug,
+          slug,
           description: event.description,
           category: event.category,
           subcategory: event.subcategory || null,
@@ -295,7 +297,29 @@ async function insertEvents(events: ProposedEvent[]) {
           is_active: true,
         }, { onConflict: 'id' })
 
-      if (eventError) {
+      if (eventError?.message?.includes('events_slug_key')) {
+        // Slug collision with a different event — retry with event_id as slug
+        slug = event.event_id.replace(/_/g, '-')
+        const { error: retryError } = await supabaseAdmin
+          .from('events')
+          .upsert({
+            id: event.event_id,
+            title: event.title,
+            slug,
+            description: event.description,
+            category: event.category,
+            subcategory: event.subcategory || null,
+            tags: event.tags,
+            resolution_date: event.resolution_date || null,
+            resolution_status: 'open',
+            is_active: true,
+          }, { onConflict: 'id' })
+
+        if (retryError) {
+          console.error(`Event upsert error [${event.event_id}]:`, retryError.message)
+          continue
+        }
+      } else if (eventError) {
         console.error(`Event upsert error [${event.event_id}]:`, eventError.message)
         continue
       }
