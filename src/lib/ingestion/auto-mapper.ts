@@ -54,29 +54,40 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function queryHaiku(prompt: string): Promise<string> {
-  const response = await fetch(ANTHROPIC_API, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY!,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 8192,
-      temperature: 0.1,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
+async function queryHaiku(prompt: string, retries = 3): Promise<string> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const response = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 8192,
+        temperature: 0.1,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
 
-  if (!response.ok) {
-    const err = await response.text()
-    throw new Error(`Claude API error: ${response.status} ${err}`)
+    if (response.status === 429 && attempt < retries) {
+      const waitSec = Math.pow(2, attempt + 1) * 10 // 20s, 40s, 80s
+      console.warn(`Rate limited, waiting ${waitSec}s before retry ${attempt + 1}/${retries}`)
+      await sleep(waitSec * 1000)
+      continue
+    }
+
+    if (!response.ok) {
+      const err = await response.text()
+      throw new Error(`Claude API error: ${response.status} ${err}`)
+    }
+
+    const data = await response.json()
+    return data.content?.[0]?.text ?? ''
   }
 
-  const data = await response.json()
-  return data.content?.[0]?.text ?? ''
+  throw new Error('Exhausted retries on rate limit')
 }
 
 async function fetchUnmappedContracts(): Promise<SourceContract[]> {
@@ -95,18 +106,37 @@ async function fetchUnmappedContracts(): Promise<SourceContract[]> {
 
   const skipSet = new Set([...mappedSet, ...linkedSet])
 
-  // Fetch Polymarket contracts
+  // Fetch Polymarket contracts — exclude crypto price-bet noise and sports
+  // so policy/geopolitics/macro contracts surface in the top results
   const { data: poly } = await supabaseAdmin
     .from('source_contracts')
     .select('platform, platform_contract_id, contract_title, price, liquidity, volume_total, num_traders')
     .eq('platform', 'polymarket')
     .eq('is_active', true)
     .is('event_id', null)
-    .gt('liquidity', 500)
+    .gt('liquidity', 100)
+    // Crypto price-bet noise
+    .not('contract_title', 'ilike', '%price above%')
+    .not('contract_title', 'ilike', '%price below%')
+    .not('contract_title', 'ilike', '%price direction%')
+    .not('contract_title', 'ilike', '%price on %')
+    .not('contract_title', 'ilike', '%reaches $%')
+    // Sports noise
+    .not('contract_title', 'ilike', '%Super Bowl%')
+    .not('contract_title', 'ilike', '%NFL%')
+    .not('contract_title', 'ilike', '%NBA%')
+    .not('contract_title', 'ilike', '%MLB%')
+    .not('contract_title', 'ilike', '%NHL%')
+    .not('contract_title', 'ilike', '%UFC%')
+    .not('contract_title', 'ilike', '%Premier League%')
+    .not('contract_title', 'ilike', '%Champions League%')
+    .not('contract_title', 'ilike', '%Grand Prix%')
+    .not('contract_title', 'ilike', '%World Series%')
+    .not('contract_title', 'ilike', '%Stanley Cup%')
     .order('liquidity', { ascending: false })
-    .limit(500)
+    .limit(1200)
 
-  // Fetch Kalshi contracts
+  // Fetch Kalshi contracts (sports already excluded at ingestion)
   const { data: kalshi } = await supabaseAdmin
     .from('source_contracts')
     .select('platform, platform_contract_id, contract_title, price, liquidity, volume_total, num_traders')
@@ -115,7 +145,7 @@ async function fetchUnmappedContracts(): Promise<SourceContract[]> {
     .is('event_id', null)
     .gt('liquidity', 50)
     .order('liquidity', { ascending: false })
-    .limit(500)
+    .limit(1200)
 
   // Fetch Metaculus
   const { data: metaculus } = await supabaseAdmin
@@ -124,9 +154,9 @@ async function fetchUnmappedContracts(): Promise<SourceContract[]> {
     .eq('platform', 'metaculus')
     .eq('is_active', true)
     .is('event_id', null)
-    .gt('num_traders', 40)
+    .gt('num_traders', 20)
     .order('num_traders', { ascending: false })
-    .limit(200)
+    .limit(500)
 
   // Round-robin interleave so each batch has contracts from all platforms
   const sources = [poly || [], kalshi || [], metaculus || []]
@@ -172,11 +202,19 @@ Given these source contracts from prediction market platforms, identify CANONICA
 
 ${TAXONOMY}
 ${existingEventsSection}
+IMPORTANT — Cross-platform matching:
+- Different platforms word the SAME question very differently. For example these are all the same event:
+  - Polymarket: "Will Trump raise tariffs on China?"
+  - Kalshi: "US increases tariffs on Chinese imports before Oct 2026"
+  - Metaculus: "Will the United States impose additional tariffs on China by Q4 2026?"
+- Match by MEANING, not by title similarity. If two contracts predict the same real-world outcome, they belong to the same event regardless of wording.
+- Also match contracts that are subsets or closely related (e.g. "Fed cuts rates in March" and "FOMC March 2026 rate decision" are the same event).
+
 Rules:
 - FIRST check if a contract matches an EXISTING EVENT above. If so, reuse that event_id exactly.
 - Only create a NEW event if no existing event matches.
 - When reusing an existing event, still include it in the output with the same event_id so the contract gets linked.
-- Group contracts about the SAME real-world question into one canonical event (cross-platform deduplication)
+- AGGRESSIVELY group contracts across platforms — the primary goal is cross-platform deduplication.
 - Skip trivial/noise contracts (crypto price 5-min bets, sports matches, entertainment gossip)
 - Focus on: geopolitics, trade, economics, policy, elections, technology, science — the things that matter to analysts and quant funds
 - Generate a clear event_id like "evt_us_china_tariff_q3_2026" (lowercase, underscores)
@@ -340,9 +378,9 @@ export async function runAutoMapper(timeBudgetMs = 240_000) {
       batchesProcessed++
     }
 
-    // Rate limit between batches
+    // Rate limit between batches — 7s gap to stay under 10k output tokens/min
     if (i + BATCH_SIZE < contracts.length && Date.now() < deadline) {
-      await sleep(1000)
+      await sleep(7000)
     }
   }
 
