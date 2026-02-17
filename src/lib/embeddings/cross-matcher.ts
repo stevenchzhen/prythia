@@ -10,21 +10,23 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { queryFast, parseResponse } from '@/lib/ai/client'
 import {
   generateEmbeddings,
   buildEventEmbeddingText,
   buildContractEmbeddingText,
 } from './voyage'
 
-const AUTO_ASSIGN_THRESHOLD = 0.85
-const LOG_THRESHOLD = 0.70
+// All matches >= 0.70 get Haiku verification — pure embedding can't distinguish
+// numbers (e.g. "$1,500-$1,600" vs "$1,900-$2,000" both score > 0.85)
+const VERIFY_THRESHOLD = 0.70
 const EMBED_BATCH_SIZE = 128
 
 interface CrossMatchStats {
   eventsEmbedded: number
   contractsEmbedded: number
-  autoAssigned: number
-  logged: number
+  aiVerified: number
+  aiRejected: number
   skipped: number
   errors: number
 }
@@ -116,32 +118,64 @@ async function embedMissing(timeBudgetMs: number): Promise<{ eventsEmbedded: num
 }
 
 /**
+ * Haiku verification for gray-zone matches (0.78–0.85 similarity).
+ * Quick yes/no: is this contract about the same real-world question as this event?
+ */
+async function verifyMatchWithAI(
+  contractTitle: string,
+  eventTitle: string
+): Promise<boolean> {
+  const response = await queryFast(
+    [
+      {
+        role: 'user',
+        content: `Are these two prediction market questions about the EXACT same real-world outcome? Not just the same topic — the same specific question with the same resolution criteria.
+
+Contract: "${contractTitle}"
+Event: "${eventTitle}"
+
+Reply with only YES or NO.`,
+      },
+    ],
+    { maxTokens: 3, temperature: 0 }
+  )
+
+  const { text } = await parseResponse(response)
+  return text.trim().toUpperCase().startsWith('YES')
+}
+
+/**
  * Phase 2: Match unmapped contracts to existing events via embedding similarity.
+ * All candidates >= 0.70 get Haiku verification. Checked contracts are stamped
+ * so they're skipped within the same weekly run cycle.
  */
 async function matchUnmapped(timeBudgetMs: number): Promise<{
-  autoAssigned: number
-  logged: number
+  aiVerified: number
+  aiRejected: number
   skipped: number
   errors: number
 }> {
   const deadline = Date.now() + timeBudgetMs
-  let autoAssigned = 0
-  let logged = 0
+  let aiVerified = 0
+  let aiRejected = 0
   let skipped = 0
   let errors = 0
 
-  // Fetch unmapped contracts that have embeddings
+  // Fetch unmapped contracts that have embeddings and haven't been checked this run cycle.
+  // The cron runs weekly, so cross_match_checked_at resets naturally — only skip
+  // contracts checked within the current run (handles multi-batch within one invocation).
   const { data: unmapped } = await supabaseAdmin
     .from('source_contracts')
     .select('id, platform, platform_contract_id, contract_title, embedding')
     .is('event_id', null)
     .not('embedding', 'is', null)
     .eq('is_active', true)
+    .is('cross_match_checked_at', null)
     .limit(500)
 
   if (!unmapped || unmapped.length === 0) {
     console.log('[CrossMatcher] No unmapped contracts with embeddings to match')
-    return { autoAssigned, logged, skipped, errors }
+    return { aiVerified, aiRejected, skipped, errors }
   }
 
   console.log(`[CrossMatcher] Matching ${unmapped.length} unmapped contracts`)
@@ -155,7 +189,7 @@ async function matchUnmapped(timeBudgetMs: number): Promise<{
         'match_events_by_embedding',
         {
           query_embedding: contract.embedding,
-          match_threshold: LOG_THRESHOLD,
+          match_threshold: VERIFY_THRESHOLD,
           match_count: 3,
         }
       )
@@ -166,15 +200,55 @@ async function matchUnmapped(timeBudgetMs: number): Promise<{
         continue
       }
 
+      // Stamp as checked regardless of outcome
+      const stampChecked = () =>
+        supabaseAdmin
+          .from('source_contracts')
+          .update({ cross_match_checked_at: new Date().toISOString() })
+          .eq('id', contract.id)
+
       if (!matches || matches.length === 0) {
+        await stampChecked()
         skipped++
         continue
       }
 
       const best = matches[0]
 
-      if (best.similarity >= AUTO_ASSIGN_THRESHOLD) {
-        // High confidence — auto-assign
+      if (best.similarity < VERIFY_THRESHOLD) {
+        await stampChecked()
+        skipped++
+        continue
+      }
+
+      // All matches get Haiku verification — embeddings can't distinguish numbers
+      let shouldAssign = false
+      try {
+        const verified = await verifyMatchWithAI(
+          contract.contract_title ?? '',
+          best.title
+        )
+        if (verified) {
+          shouldAssign = true
+          aiVerified++
+          console.log(
+            `[CrossMatcher] AI verified: "${contract.contract_title}" → "${best.title}" (${best.similarity.toFixed(3)})`
+          )
+        } else {
+          await stampChecked()
+          aiRejected++
+          console.log(
+            `[CrossMatcher] AI rejected: "${contract.contract_title}" ~ "${best.title}" (${best.similarity.toFixed(3)})`
+          )
+        }
+      } catch (err) {
+        console.warn(`[CrossMatcher] AI verify failed for ${contract.id}:`, err)
+        await stampChecked()
+        errors++
+        continue
+      }
+
+      if (shouldAssign) {
         const { error: linkError } = await supabaseAdmin
           .from('source_contracts')
           .update({ event_id: best.event_id })
@@ -192,23 +266,16 @@ async function matchUnmapped(timeBudgetMs: number): Promise<{
             event_id: best.event_id,
             platform: contract.platform,
             platform_contract_id: contract.platform_contract_id,
-            confidence: 'embedding_high',
-            mapped_by: 'voyage-3-lite',
+            confidence: 'embedding_ai_verified',
+            mapped_by: 'voyage-3-lite+haiku',
             mapped_at: new Date().toISOString(),
           },
           { onConflict: 'platform,platform_contract_id' }
         )
 
         console.log(
-          `[CrossMatcher] Auto-assigned: "${contract.contract_title}" → "${best.title}" (${best.similarity.toFixed(3)})`
+          `[CrossMatcher] Assigned: "${contract.contract_title}" → "${best.title}" (${best.similarity.toFixed(3)})`
         )
-        autoAssigned++
-      } else {
-        // Medium confidence — log for review
-        console.log(
-          `[CrossMatcher] Candidate: "${contract.contract_title}" ~ "${best.title}" (${best.similarity.toFixed(3)})`
-        )
-        logged++
       }
     } catch (err) {
       console.error(`[CrossMatcher] Error matching ${contract.id}:`, err)
@@ -216,7 +283,7 @@ async function matchUnmapped(timeBudgetMs: number): Promise<{
     }
   }
 
-  return { autoAssigned, logged, skipped, errors }
+  return { aiVerified, aiRejected, skipped, errors }
 }
 
 /**
@@ -227,6 +294,14 @@ export async function runCrossMatcher(
 ): Promise<CrossMatchStats> {
   console.log(`[CrossMatcher] Starting with ${timeBudgetMs}ms budget`)
   const start = Date.now()
+
+  // Reset checked stamps so all unmapped contracts get re-evaluated
+  // against any new events created since last run
+  await supabaseAdmin
+    .from('source_contracts')
+    .update({ cross_match_checked_at: null })
+    .is('event_id', null)
+    .not('cross_match_checked_at', 'is', null)
 
   // Phase 1: embed missing (60% of budget)
   const embedBudget = Math.floor(timeBudgetMs * 0.6)
@@ -239,7 +314,10 @@ export async function runCrossMatcher(
   const stats: CrossMatchStats = {
     eventsEmbedded,
     contractsEmbedded,
-    ...matchResult,
+    aiVerified: matchResult.aiVerified,
+    aiRejected: matchResult.aiRejected,
+    skipped: matchResult.skipped,
+    errors: matchResult.errors,
   }
 
   const elapsed = ((Date.now() - start) / 1000).toFixed(1)

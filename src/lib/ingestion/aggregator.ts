@@ -272,7 +272,7 @@ export async function aggregateEvent(eventId: string) {
 
         // Alphabetically order the pair
         const [first, second] = a.platform < b.platform ? [a, b] : [b, a]
-        const pairSpread = Math.abs(first.price - second.price)
+        const pairSpread = Math.round(Math.abs(first.price - second.price) * 10000) / 10000
         const higherPlatform = first.price >= second.price ? first.platform : second.platform
 
         console.log(`[Divergence] Inserting pair: ${first.platform}(${first.price}) vs ${second.platform}(${second.price}), spread=${pairSpread}`)

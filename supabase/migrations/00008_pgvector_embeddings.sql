@@ -15,6 +15,10 @@ CREATE INDEX idx_source_contracts_embedding
     ON source_contracts USING hnsw (embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);
 
+-- Track which contracts have been checked by the cross-matcher
+-- so we don't re-check rejected matches every run
+ALTER TABLE source_contracts ADD COLUMN IF NOT EXISTS cross_match_checked_at TIMESTAMPTZ;
+
 -- RPC: find events by embedding similarity
 CREATE OR REPLACE FUNCTION match_events_by_embedding(
     query_embedding vector(512),

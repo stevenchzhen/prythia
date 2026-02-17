@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     // Re-aggregate if contracts were linked to events
     let aggResult = { eventsProcessed: 0, eventsUpdated: 0 }
-    if (stats.autoAssigned > 0) {
+    if (stats.aiVerified > 0) {
       aggResult = await aggregateAllEvents()
     }
 
