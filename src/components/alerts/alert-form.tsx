@@ -18,11 +18,11 @@ export function AlertForm() {
   const [showResults, setShowResults] = useState(false)
 
   useEffect(() => {
-    if (!search.trim() || search.length < 2) {
-      setResults([])
-      return
-    }
     const timer = setTimeout(async () => {
+      if (!search.trim() || search.length < 2) {
+        setResults([])
+        return
+      }
       try {
         const res = await fetch(`/api/v1/events?search=${encodeURIComponent(search)}&limit=5`)
         const data = await res.json()
