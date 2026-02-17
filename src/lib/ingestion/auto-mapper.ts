@@ -212,37 +212,59 @@ Respond with ONLY a JSON array of proposed events. No markdown, no explanation. 
     jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
   }
 
-  return JSON.parse(jsonStr) as ProposedEvent[]
+  try {
+    return JSON.parse(jsonStr) as ProposedEvent[]
+  } catch {
+    // Attempt to recover truncated JSON by finding the last complete object
+    const lastBrace = jsonStr.lastIndexOf('}')
+    if (lastBrace > 0) {
+      const recovered = jsonStr.substring(0, lastBrace + 1) + ']'
+      console.warn('Recovered truncated JSON from Haiku response')
+      return JSON.parse(recovered) as ProposedEvent[]
+    }
+    throw new Error('Could not parse Haiku response')
+  }
 }
 
 async function insertEvents(events: ProposedEvent[]) {
   let eventsCreated = 0
   let mappingsCreated = 0
 
+  // Pre-fetch which event IDs already exist so we skip upserting them
+  const eventIds = events.filter(e => VALID_CATEGORIES.includes(e.category)).map(e => e.event_id)
+  const { data: existing } = await supabaseAdmin
+    .from('events')
+    .select('id')
+    .in('id', eventIds)
+  const existingIds = new Set((existing || []).map(e => e.id))
+
   for (const event of events) {
     if (!VALID_CATEGORIES.includes(event.category)) continue
 
-    const { error: eventError } = await supabaseAdmin
-      .from('events')
-      .upsert({
-        id: event.event_id,
-        title: event.title,
-        slug: event.slug,
-        description: event.description,
-        category: event.category,
-        subcategory: event.subcategory || null,
-        tags: event.tags,
-        resolution_date: event.resolution_date || null,
-        resolution_status: 'open',
-        is_active: true,
-      }, { onConflict: 'id' })
+    if (!existingIds.has(event.event_id)) {
+      const { error: eventError } = await supabaseAdmin
+        .from('events')
+        .upsert({
+          id: event.event_id,
+          title: event.title,
+          slug: event.slug,
+          description: event.description,
+          category: event.category,
+          subcategory: event.subcategory || null,
+          tags: event.tags,
+          resolution_date: event.resolution_date || null,
+          resolution_status: 'open',
+          is_active: true,
+        }, { onConflict: 'id' })
 
-    if (eventError) {
-      console.error(`Event upsert error [${event.event_id}]:`, eventError.message)
-      continue
+      if (eventError) {
+        console.error(`Event upsert error [${event.event_id}]:`, eventError.message)
+        continue
+      }
+      eventsCreated++
     }
-    eventsCreated++
 
+    // Always create mappings — for both new and existing events
     for (const sc of event.source_contracts) {
       const { error: mapError } = await supabaseAdmin
         .from('event_source_mappings')
@@ -280,7 +302,7 @@ async function insertEvents(events: ProposedEvent[]) {
 export async function runAutoMapper(timeBudgetMs = 240_000) {
   const startTime = Date.now()
   const deadline = startTime + timeBudgetMs
-  const BATCH_SIZE = 80
+  const BATCH_SIZE = 50
 
   const contracts = await fetchUnmappedContracts()
 
