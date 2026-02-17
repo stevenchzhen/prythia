@@ -1,16 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { runRAGPipeline } from '@/lib/ai/rag'
 
-export async function POST(_request: NextRequest) {
-  // TODO: AI query endpoint
-  // 1. Authenticate
-  // 2. Parse request body { question, context: { watchlist, categories, max_events } }
-  // 3. Run RAG pipeline: query parser -> data retriever -> context builder -> LLM inference -> post-processor
-  // 4. Return streamed or complete response
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { question, categories, maxEvents, useHeavyModel } = body
 
-  return NextResponse.json({
-    answer: 'AI query endpoint not yet implemented.',
-    events_referenced: [],
-    confidence: 'low',
-    generated_at: new Date().toISOString(),
-  }, { status: 501 })
+    if (!question || typeof question !== 'string') {
+      return NextResponse.json(
+        { error: { code: 'INVALID_INPUT', message: 'question is required' } },
+        { status: 400 }
+      )
+    }
+
+    const result = await runRAGPipeline({
+      question,
+      categories: categories ?? undefined,
+      maxEvents: maxEvents ?? undefined,
+      useHeavyModel: useHeavyModel ?? false,
+    })
+
+    return NextResponse.json(result)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'AI query failed'
+    return NextResponse.json(
+      { error: { code: 'AI_ERROR', message } },
+      { status: 500 }
+    )
+  }
 }

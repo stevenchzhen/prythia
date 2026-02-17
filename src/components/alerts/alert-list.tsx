@@ -20,7 +20,7 @@ interface AlertListProps {
 export function AlertList({ alerts, onToggle }: AlertListProps) {
   if (alerts.length === 0) {
     return (
-      <p className="text-sm text-slate-400 py-8 text-center">
+      <p className="text-sm text-zinc-500 py-8 text-center">
         No alerts configured. Create one to get notified about probability changes.
       </p>
     )
@@ -31,11 +31,11 @@ export function AlertList({ alerts, onToggle }: AlertListProps) {
       {alerts.map((alert) => (
         <div
           key={alert.id}
-          className="flex items-center justify-between p-3 border border-slate-800 rounded-lg"
+          className="flex items-center justify-between p-3 border border-[var(--primary-ghost)] rounded-lg hover:bg-[var(--primary-ghost)] transition-colors"
         >
-          <div>
-            <p className="text-sm font-medium">{alert.event_title}</p>
-            <p className="text-xs text-slate-400">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-zinc-300 truncate">{alert.event_title}</p>
+            <p className="text-xs text-zinc-500">
               {alert.alert_type} · Triggered {alert.trigger_count} times
             </p>
           </div>
