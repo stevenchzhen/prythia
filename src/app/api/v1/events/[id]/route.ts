@@ -37,9 +37,28 @@ export async function GET(
       )
     }
 
+    // Fetch latest divergence snapshots per platform pair
+    const { data: divergenceRows } = await supabaseAdmin
+      .from('divergence_snapshots')
+      .select('platform_a, platform_b, price_a, price_b, spread, higher_platform, captured_at')
+      .eq('event_id', id)
+      .order('captured_at', { ascending: false })
+      .limit(10)
+
+    // Deduplicate to latest per pair
+    const pairMap = new Map<string, typeof divergenceRows extends (infer T)[] | null ? T : never>()
+    for (const row of divergenceRows ?? []) {
+      const key = `${row.platform_a}-${row.platform_b}`
+      if (!pairMap.has(key)) pairMap.set(key, row)
+    }
+
     return NextResponse.json({
       ...event,
       sources: sources ?? [],
+      divergence: {
+        max_spread: event.max_spread ?? 0,
+        pairs: Array.from(pairMap.values()),
+      },
     })
   } catch {
     return NextResponse.json(

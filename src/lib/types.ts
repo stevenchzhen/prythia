@@ -42,6 +42,9 @@ export interface Event {
   ai_analysis: AIAnalysis | null
   ai_analysis_updated_at: string | null
 
+  // Divergence
+  max_spread: number | null
+
   // Metadata
   created_at: string
   updated_at: string
@@ -188,6 +191,40 @@ export interface AIMessage {
   content: string
   events_referenced: string[]
   created_at: string
+}
+
+// ─── Divergence Models ────────────────────────────────────────────
+
+export interface DivergenceSnapshot {
+  id: string
+  event_id: string
+  platform_a: string
+  platform_b: string
+  price_a: number
+  price_b: number
+  spread: number
+  higher_platform: string
+  captured_at: string
+}
+
+export interface DivergencePairSummary {
+  platform_a: string
+  platform_b: string
+  price_a: number
+  price_b: number
+  spread: number
+  higher_platform: string
+  captured_at: string
+}
+
+export interface ResolutionAccuracy {
+  window: string
+  closer_platform: string | null
+  price_a: number
+  price_b: number
+  outcome: number
+  distance_a: number
+  distance_b: number
 }
 
 // ─── API Response Types ────────────────────────────────────────────

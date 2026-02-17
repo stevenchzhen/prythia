@@ -24,6 +24,10 @@ export function SourceTable({ sources, spread }: SourceTableProps) {
     ? spread < 0.05 ? 'strong' : spread < 0.10 ? 'moderate' : 'weak'
     : null
 
+  // Compute average price for outlier detection
+  const prices = sources.map((s) => s.price ?? 0)
+  const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length
+
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-medium text-slate-300">Data Sources</h3>
@@ -38,10 +42,12 @@ export function SourceTable({ sources, spread }: SourceTableProps) {
           </tr>
         </thead>
         <tbody>
-          {sources.map((s) => (
+          {sources.map((s) => {
+            const isOutlier = Math.abs((s.price ?? 0) - avgPrice) > 0.10
+            return (
             <tr key={s.platform} className="border-b border-slate-800/50">
               <td className="py-2 capitalize">{s.platform}</td>
-              <td className="py-2 text-right tabular-nums">{((s.price ?? 0) * 100).toFixed(1)}%</td>
+              <td className={`py-2 text-right tabular-nums ${isOutlier ? 'text-amber-400' : ''}`}>{((s.price ?? 0) * 100).toFixed(1)}%</td>
               <td className="py-2 text-right tabular-nums">
                 {s.volume_24h
                   ? `$${(s.volume_24h / 1000).toFixed(0)}K`
@@ -52,7 +58,8 @@ export function SourceTable({ sources, spread }: SourceTableProps) {
               <td className="py-2 text-right tabular-nums">${((s.liquidity ?? 0) / 1000).toFixed(0)}K</td>
               <td className="py-2 text-right tabular-nums">{(s.num_traders ?? 0).toLocaleString()}</td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
       {spreadLabel && (

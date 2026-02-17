@@ -9,7 +9,7 @@ import type { Alert, Event } from '@/lib/types'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://prythia.com'
 
 interface AlertWithEvent extends Alert {
-  events: Pick<Event, 'id' | 'title' | 'slug' | 'probability' | 'prob_change_24h' | 'volume_24h' | 'resolution_status'> | null
+  events: Pick<Event, 'id' | 'title' | 'slug' | 'probability' | 'prob_change_24h' | 'volume_24h' | 'resolution_status' | 'max_spread'> | null
 }
 
 function shouldFire(alert: AlertWithEvent): boolean {
@@ -39,8 +39,11 @@ function shouldFire(alert: AlertWithEvent): boolean {
     case 'resolution': {
       return event.resolution_status !== 'open'
     }
+    case 'divergence': {
+      const threshold = Number(condition.threshold) / 100
+      return (event.max_spread ?? 0) >= threshold
+    }
     case 'new_event':
-    case 'divergence':
       return false
     default:
       return false
@@ -80,10 +83,14 @@ async function dispatchNotifications(
 
   if (alert.channels.includes('email') && userEmail) {
     const prob = ((event.probability ?? 0) * 100).toFixed(1)
+    const spreadInfo = alert.alert_type === 'divergence' && event.max_spread != null
+      ? `<p><strong>Cross-Platform Spread:</strong> ${(event.max_spread * 100).toFixed(1)} percentage points</p>`
+      : ''
     const html = `
       <h2>Alert: ${event.title}</h2>
       <p><strong>Type:</strong> ${alert.alert_type.replace('_', ' ')}</p>
       <p><strong>Probability:</strong> ${prob}%</p>
+      ${spreadInfo}
       <p><a href="${eventUrl}">View on Prythia</a></p>
     `
     promises.push(
@@ -125,7 +132,7 @@ export async function GET(request: NextRequest) {
     // 1. Get all active alerts with joined event data
     const { data: alerts, error: alertsError } = await supabase
       .from('alerts')
-      .select('*, events(id, title, slug, probability, prob_change_24h, volume_24h, resolution_status)')
+      .select('*, events(id, title, slug, probability, prob_change_24h, volume_24h, resolution_status, max_spread)')
       .eq('is_active', true)
 
     if (alertsError) throw alertsError

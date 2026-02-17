@@ -34,10 +34,10 @@ export default function LandingPage() {
 
           <div className="flex gap-3 justify-center">
             <Link
-              href="/feed"
+              href="/login"
               className="rounded-full bg-[rgba(247,215,76,0.95)] px-6 py-3 text-sm font-semibold text-black transition hover:translate-y-[-1px] glow-soft"
             >
-              Open Dashboard
+              Log In
             </Link>
             <Link
               href="/signup"

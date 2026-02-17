@@ -12,7 +12,7 @@ export function AlertForm() {
   const [search, setSearch] = useState('')
   const [results, setResults] = useState<Event[]>([])
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
-  const [alertType, setAlertType] = useState<'threshold_cross' | 'movement'>('threshold_cross')
+  const [alertType, setAlertType] = useState<'threshold_cross' | 'movement' | 'divergence'>('threshold_cross')
   const [threshold, setThreshold] = useState(50)
   const [direction, setDirection] = useState<'above' | 'below'>('above')
   const [showResults, setShowResults] = useState(false)
@@ -47,7 +47,9 @@ export function AlertForm() {
       eventId: selectedEvent.id,
       eventTitle: selectedEvent.title,
       alertType,
-      condition: { threshold, direction },
+      condition: alertType === 'divergence'
+        ? { threshold }
+        : { threshold, direction },
       isActive: true,
     })
     setSelectedEvent(null)
@@ -57,7 +59,7 @@ export function AlertForm() {
     setAlertType('threshold_cross')
   }
 
-  const maxThreshold = alertType === 'threshold_cross' ? 99 : 50
+  const maxThreshold = alertType === 'threshold_cross' ? 99 : alertType === 'divergence' ? 50 : 50
 
   return (
     <div className="glass-card rounded-xl p-4 space-y-4">
@@ -127,6 +129,16 @@ export function AlertForm() {
           >
             24h movement exceeds
           </button>
+          <button
+            onClick={() => { setAlertType('divergence'); setThreshold(10) }}
+            className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
+              alertType === 'divergence'
+                ? 'border-[var(--primary-muted)] bg-[var(--primary-ghost)] text-[rgba(247,215,76,0.85)]'
+                : 'border-[var(--primary-ghost)] text-zinc-500 hover:text-zinc-400'
+            }`}
+          >
+            Spread exceeds
+          </button>
         </div>
       </div>
 
@@ -161,7 +173,7 @@ export function AlertForm() {
         )}
         <div className="space-y-1.5 flex-1">
           <label className="text-[11px] text-zinc-500 uppercase tracking-wider">
-            {alertType === 'threshold_cross' ? 'Threshold (%)' : 'Movement (%)'}
+            {alertType === 'threshold_cross' ? 'Threshold (%)' : alertType === 'divergence' ? 'Spread (pp)' : 'Movement (%)'}
           </label>
           <Input
             type="number"

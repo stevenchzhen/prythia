@@ -3,7 +3,7 @@
 import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
-import { ArrowLeft, Bookmark, Calendar, BarChart3, Star } from 'lucide-react'
+import { ArrowLeft, Bookmark, Calendar, BarChart3, Star, GitCompare } from 'lucide-react'
 import { format } from 'date-fns'
 import { useEventDetail } from '@/hooks/use-event-detail'
 import { useWatchlist } from '@/hooks/use-watchlist'
@@ -11,6 +11,7 @@ import { ProbabilityChart } from '@/components/events/probability-chart'
 import { SourceTable } from '@/components/events/source-table'
 import { QualityDots } from '@/components/events/quality-dots'
 import { MovementBadge } from '@/components/events/movement-badge'
+import { DivergencePanel } from '@/components/events/divergence-panel'
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -105,7 +106,7 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard
           label="Likelihood"
           value={`${((event.probability ?? 0) * 100).toFixed(1)}%`}
@@ -115,6 +116,17 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
           label="24h Trend"
           value={<MovementBadge change={event.prob_change_24h ?? 0} className="text-sm" />}
         />
+        {(event.source_count ?? 0) > 1 && (
+          <StatCard
+            label="Cross-Market Spread"
+            value={
+              <span className={(event.max_spread ?? 0) >= 0.10 ? 'text-red-400' : ''}>
+                {((event.max_spread ?? 0) * 100).toFixed(1)}pp
+              </span>
+            }
+            icon={<GitCompare className="h-3 w-3" />}
+          />
+        )}
         <StatCard
           label="Market Confidence"
           value={
@@ -161,6 +173,15 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
         </div>
       )}
 
+      {/* Divergence panel — shown when multiple sources exist */}
+      {(event.source_count ?? 0) > 1 && (
+        <DivergencePanel
+          eventId={event.id}
+          timeRange={timeRange}
+          resolutionStatus={event.resolution_status}
+        />
+      )}
+
       {/* Likelihood over time */}
       <div className="glass-card rounded-xl p-5">
         <ProbabilityChart
@@ -181,7 +202,7 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
       {/* Data sources */}
       {event.sources && event.sources.length > 0 && (
         <div className="glass-card rounded-xl p-5">
-          <SourceTable sources={event.sources} />
+          <SourceTable sources={event.sources} spread={event.max_spread ?? undefined} />
         </div>
       )}
 

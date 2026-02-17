@@ -1,12 +1,16 @@
 'use client'
 
 import useSWR from 'swr'
-import type { Event, SourceContract } from '@/lib/types'
+import type { Event, SourceContract, DivergencePairSummary } from '@/lib/types'
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 interface EventDetail extends Event {
   sources: SourceContract[]
+  divergence?: {
+    max_spread: number
+    pairs: DivergencePairSummary[]
+  }
 }
 
 export function useEventDetail(eventId: string | null) {

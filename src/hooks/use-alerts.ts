@@ -8,10 +8,10 @@ export interface LocalAlert {
   id: string
   eventId: string
   eventTitle: string
-  alertType: 'threshold_cross' | 'movement'
+  alertType: 'threshold_cross' | 'movement' | 'divergence'
   condition: {
     threshold: number
-    direction: 'above' | 'below'
+    direction?: 'above' | 'below'
   }
   isActive: boolean
   createdAt: string

@@ -214,6 +214,7 @@ export async function aggregateEvent(eventId: string) {
       prob_change_30d: probChanges.prob_change_30d,
       prob_high_30d: probHigh30d,
       prob_low_30d: probLow30d,
+      max_spread: spread,
     })
     .eq('id', eventId)
 
@@ -256,6 +257,39 @@ export async function aggregateEvent(eventId: string) {
       })
     if (srcSnapshotError) {
       console.error(`Per-source snapshot error [${eventId}/${source.platform}]:`, srcSnapshotError)
+    }
+  }
+
+  // 9. Insert divergence snapshots for each platform pair
+  if (dedupedSources.length > 1) {
+    const now = new Date().toISOString()
+    for (let i = 0; i < dedupedSources.length; i++) {
+      for (let j = i + 1; j < dedupedSources.length; j++) {
+        const a = dedupedSources[i]
+        const b = dedupedSources[j]
+        if (a.price === null || b.price === null) continue
+
+        // Alphabetically order the pair
+        const [first, second] = a.platform < b.platform ? [a, b] : [b, a]
+        const pairSpread = Math.abs(first.price - second.price)
+        const higherPlatform = first.price >= second.price ? first.platform : second.platform
+
+        const { error: divError } = await supabaseAdmin
+          .from('divergence_snapshots')
+          .insert({
+            event_id: eventId,
+            platform_a: first.platform,
+            platform_b: second.platform,
+            price_a: first.price,
+            price_b: second.price,
+            spread: pairSpread,
+            higher_platform: higherPlatform,
+            captured_at: now,
+          })
+        if (divError) {
+          console.error(`Divergence snapshot error [${eventId}/${first.platform}-${second.platform}]:`, divError)
+        }
+      }
     }
   }
 

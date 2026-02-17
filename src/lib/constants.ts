@@ -83,6 +83,14 @@ export const API_RATE_LIMITS = {
   enterprise: 100000,
 } as const
 
+// ─── Divergence Thresholds ─────────────────────────────────────────
+
+export const DIVERGENCE_THRESHOLDS = {
+  STRONG: 0.05,    // < 5pp = strong agreement
+  MODERATE: 0.10,  // 5–10pp = moderate divergence
+  SIGNIFICANT: 0.10, // >= 10pp = significant divergence
+} as const
+
 // ─── Display ───────────────────────────────────────────────────────
 
 export const MOVEMENT_THRESHOLD = 0.01 // ±1% is considered "stable"
