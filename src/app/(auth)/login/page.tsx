@@ -33,70 +33,89 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#050506]">
-      <div className="w-full max-w-sm space-y-6 p-8">
-        <div className="text-center space-y-2">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--primary-muted)] bg-[rgba(12,13,20,0.7)] text-lg font-semibold">
-            π
-          </span>
-          <h1 className="text-xl font-semibold tracking-wide text-zinc-100">
-            Log in to Prythia
-          </h1>
-          <p className="text-sm text-zinc-500">
-            Signal intelligence for prediction markets
-          </p>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
+      {/* Background — matching landing page */}
+      <div className="pointer-events-none absolute inset-0 bg-grid opacity-70" />
+      <div className="pointer-events-none absolute -top-40 right-0 h-96 w-96 rounded-full bg-[radial-gradient(circle_at_center,_rgba(247,215,76,0.28),_transparent_65%)]" />
+      <div className="pointer-events-none absolute -bottom-48 left-0 h-[32rem] w-[32rem] rounded-full bg-[radial-gradient(circle_at_center,_rgba(255,216,74,0.18),_transparent_65%)]" />
+
+      <div className="relative z-10 w-full max-w-sm px-6">
+        {/* Logo + heading */}
+        <div className="mb-8 text-center space-y-4">
+          <div className="flex justify-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(247,215,76,0.4)] bg-[rgba(12,13,20,0.7)] text-xl font-semibold glow-ring">
+              π
+            </span>
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-wide text-white">
+              Welcome back
+            </h1>
+            <p className="text-xs uppercase tracking-[0.16em] text-[rgba(247,215,76,0.7)]">
+              Sign in to Prythia
+            </p>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium text-zinc-300">
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="bg-[rgba(12,13,20,0.5)] border-[var(--primary-border)] text-zinc-100"
-            />
-          </div>
+        {/* Form card */}
+        <div className="glass-surface rounded-xl p-6 space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-[13px] font-medium text-zinc-400">
+                Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className="h-10 bg-[rgba(6,7,10,0.75)] border-[var(--primary-border)] text-zinc-100 placeholder:text-zinc-600 focus-visible:border-[var(--primary-muted)] focus-visible:ring-[var(--primary-ghost)]"
+              />
+            </div>
 
-          <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium text-zinc-300">
-              Password
-            </label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              className="bg-[rgba(12,13,20,0.5)] border-[var(--primary-border)] text-zinc-100"
-            />
-          </div>
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-[13px] font-medium text-zinc-400">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="h-10 bg-[rgba(6,7,10,0.75)] border-[var(--primary-border)] text-zinc-100 placeholder:text-zinc-600 focus-visible:border-[var(--primary-muted)] focus-visible:ring-[var(--primary-ghost)]"
+              />
+            </div>
 
-          {error && (
-            <p className="text-sm text-red-400">{error}</p>
-          )}
+            {error && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">
+                <p className="text-[13px] text-red-400">{error}</p>
+              </div>
+            )}
 
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[rgba(247,215,76,0.9)] text-[#0c0d14] hover:bg-[rgba(247,215,76,1)] font-medium"
-          >
-            {loading ? 'Signing in…' : 'Sign in'}
-          </Button>
-        </form>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full h-10 rounded-lg bg-[rgba(247,215,76,0.95)] text-black font-semibold text-sm transition hover:translate-y-[-0.5px] glow-soft disabled:opacity-50 disabled:hover:translate-y-0"
+            >
+              {loading ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </div>
 
-        <p className="text-center text-sm text-zinc-500">
+        {/* Footer link */}
+        <p className="mt-6 text-center text-[13px] text-zinc-500">
           Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-[rgba(247,215,76,0.8)] hover:text-[rgba(247,215,76,1)] underline-offset-4 hover:underline">
-            Sign up
+          <Link
+            href="/signup"
+            className="text-[var(--primary-text)] underline-offset-4 hover:underline transition"
+          >
+            Create one
           </Link>
         </p>
       </div>

@@ -155,15 +155,20 @@ export async function GET(request: NextRequest) {
       // 6. Log to alert_history
       await supabase.from('alert_history').insert({
         alert_id: alert.id,
+        user_id: alert.user_id,
         event_id: alert.event_id,
         triggered_at: new Date().toISOString(),
-        alert_type: alert.alert_type,
-        condition_snapshot: alert.condition,
-        event_snapshot: {
-          probability: alert.events?.probability,
-          prob_change_24h: alert.events?.prob_change_24h,
-          volume_24h: alert.events?.volume_24h,
+        trigger_data: {
+          alert_type: alert.alert_type,
+          condition: alert.condition,
+          event: {
+            probability: alert.events?.probability,
+            prob_change_24h: alert.events?.prob_change_24h,
+            volume_24h: alert.events?.volume_24h,
+          },
         },
+        channels_sent: alert.channels,
+        delivery_status: 'sent',
       })
 
       // 7. Update alert metadata
