@@ -27,18 +27,16 @@ export async function updateSession(request: NextRequest) {
 
   // Refreshes the auth token if needed
   const {
-    data: { user: _user },
+    data: { user },
   } = await supabase.auth.getUser()
 
-  // Auth wall disabled for now — no login required to access dashboard
-  // TODO: Re-enable when auth is implemented
-  // const protectedPaths = ['/feed', '/watchlist', '/explore', '/chat', '/alerts', '/analytics', '/settings']
-  // const isProtected = protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path))
-  // if (!user && isProtected) {
-  //   const url = request.nextUrl.clone()
-  //   url.pathname = '/login'
-  //   return NextResponse.redirect(url)
-  // }
+  const protectedPaths = ['/feed', '/watchlist', '/explore', '/chat', '/alerts', '/analytics', '/settings']
+  const isProtected = protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path))
+  if (!user && isProtected) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
 
   return supabaseResponse
 }

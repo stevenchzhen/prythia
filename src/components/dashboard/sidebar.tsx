@@ -1,17 +1,20 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   Activity,
   BarChart3,
   Bell,
   Bookmark,
   Compass,
+  LogOut,
   MessageSquare,
   Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 
 const navigation = [
   { name: 'Feed', href: '/feed', icon: Activity },
@@ -25,6 +28,22 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserEmail(user?.email ?? null)
+    })
+  }, [])
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <aside className="flex w-56 flex-col border-r border-[var(--primary-border)] bg-[#050506]">
@@ -65,11 +84,20 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Bottom */}
-      <div className="border-t border-[var(--primary-border)] px-4 py-3">
-        <p className="mono text-[11px] uppercase tracking-[0.16em] text-zinc-600">
-          Signal Intelligence
-        </p>
+      {/* Bottom — user info + sign out */}
+      <div className="border-t border-[var(--primary-border)] px-3 py-3 space-y-2">
+        {userEmail && (
+          <p className="truncate px-1 text-[11px] text-zinc-500" title={userEmail}>
+            {userEmail}
+          </p>
+        )}
+        <button
+          onClick={handleSignOut}
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-medium text-zinc-500 transition-colors hover:bg-[var(--primary-ghost)] hover:text-zinc-300"
+        >
+          <LogOut className="h-4 w-4" strokeWidth={1.5} />
+          Sign out
+        </button>
       </div>
     </aside>
   )
