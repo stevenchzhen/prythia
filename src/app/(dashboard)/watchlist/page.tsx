@@ -8,7 +8,7 @@ import { EventRow } from '@/components/events/event-row'
 
 export default function WatchlistPage() {
   const router = useRouter()
-  const { watchedIds, removeFromWatchlist } = useWatchlist()
+  const { watchedIds, isWatched, toggleWatchlist } = useWatchlist()
 
   // Fetch all watched events
   // We use a custom fetch since useEvents doesn't support filtering by IDs
@@ -53,21 +53,13 @@ export default function WatchlistPage() {
       ) : (
         <div className="rounded-xl border border-[var(--primary-ghost)] overflow-hidden">
           {watchedEvents.map((event) => (
-            <div key={event.id} className="flex items-center">
-              <div className="flex-1">
-                <EventRow
-                  event={event}
-                  onClick={() => router.push(`/event/${event.id}`)}
-                />
-              </div>
-              <button
-                onClick={() => removeFromWatchlist(event.id)}
-                className="px-3 text-zinc-600 hover:text-[#ef4444] transition-colors"
-                title="Remove from watchlist"
-              >
-                <Bookmark className="h-3.5 w-3.5" fill="currentColor" />
-              </button>
-            </div>
+            <EventRow
+              key={event.id}
+              event={event}
+              onClick={() => router.push(`/event/${event.id}`)}
+              isWatched={isWatched(event.id)}
+              onToggleWatch={toggleWatchlist}
+            />
           ))}
         </div>
       )}

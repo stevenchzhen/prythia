@@ -1,5 +1,6 @@
 'use client'
 
+import { Bookmark } from 'lucide-react'
 import type { Event } from '@/lib/types'
 import { Sparkline } from './sparkline'
 import { QualityDots } from './quality-dots'
@@ -13,9 +14,11 @@ interface EventRowProps {
   event: EventWithSparkline
   density?: 'compact' | 'default' | 'expanded'
   onClick?: (eventId: string) => void
+  isWatched?: boolean
+  onToggleWatch?: (eventId: string) => void
 }
 
-export function EventRow({ event, onClick }: EventRowProps) {
+export function EventRow({ event, onClick, isWatched, onToggleWatch }: EventRowProps) {
   return (
     <div
       className="flex items-center gap-4 px-4 py-3 border-b border-[var(--primary-ghost)] hover:bg-[var(--primary-ghost)] cursor-pointer transition-colors duration-150 group"
@@ -44,6 +47,26 @@ export function EventRow({ event, onClick }: EventRowProps) {
 
       {/* Quality */}
       <QualityDots score={event.quality_score ?? 0} />
+
+      {/* Watchlist toggle */}
+      {onToggleWatch && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleWatch(event.id)
+          }}
+          className="flex-shrink-0 p-1 rounded-md hover:bg-[var(--primary-subtle)] transition-colors"
+          title={isWatched ? 'Remove from watchlist' : 'Add to watchlist'}
+        >
+          <Bookmark
+            className={`h-3.5 w-3.5 transition-colors ${
+              isWatched
+                ? 'fill-[rgba(247,215,76,0.8)] text-[rgba(247,215,76,0.8)]'
+                : 'text-zinc-600 group-hover:text-zinc-500'
+            }`}
+          />
+        </button>
+      )}
     </div>
   )
 }

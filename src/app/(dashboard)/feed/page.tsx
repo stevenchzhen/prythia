@@ -5,6 +5,7 @@ import { useQueryState, parseAsString, parseAsInteger } from 'nuqs'
 import useSWR from 'swr'
 import { TrendingUp, TrendingDown, ChevronDown } from 'lucide-react'
 import { useEvents } from '@/hooks/use-events'
+import { useWatchlist } from '@/hooks/use-watchlist'
 import { EventRow } from '@/components/events/event-row'
 import { CategoryTabs } from '@/components/filters/category-tabs'
 import type { Event } from '@/lib/types'
@@ -21,6 +22,7 @@ const SORT_OPTIONS = [
 
 export default function FeedPage() {
   const router = useRouter()
+  const { isWatched, toggleWatchlist } = useWatchlist()
   const [category, setCategory] = useQueryState('category', parseAsString.withDefault('all'))
   const [sort, setSort] = useQueryState('sort', parseAsString.withDefault('movement'))
   const [search] = useQueryState('search', parseAsString)
@@ -117,6 +119,8 @@ export default function FeedPage() {
               key={event.id}
               event={event}
               onClick={() => router.push(`/event/${event.id}`)}
+              isWatched={isWatched(event.id)}
+              onToggleWatch={toggleWatchlist}
             />
           ))
         )}

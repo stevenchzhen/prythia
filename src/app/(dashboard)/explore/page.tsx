@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { Compass, TrendingUp, TrendingDown, BarChart3, ChevronRight } from 'lucide-react'
 import { useEvents } from '@/hooks/use-events'
+import { useWatchlist } from '@/hooks/use-watchlist'
 import { EventRow } from '@/components/events/event-row'
 import { CATEGORY_LABELS } from '@/lib/constants'
 import type { Event } from '@/lib/types'
@@ -65,6 +66,7 @@ function formatVolume(v: number): string {
 
 export default function ExplorePage() {
   const router = useRouter()
+  const { isWatched, toggleWatchlist } = useWatchlist()
   const { events, isLoading } = useEvents({ limit: 100, sort: 'volume', order: 'desc' })
 
   const categories = computeCategoryStats(events)
@@ -162,6 +164,8 @@ export default function ExplorePage() {
                       key={event.id}
                       event={event}
                       onClick={() => router.push(`/event/${event.id}`)}
+                      isWatched={isWatched(event.id)}
+                      onToggleWatch={toggleWatchlist}
                     />
                   ))}
                 </div>
