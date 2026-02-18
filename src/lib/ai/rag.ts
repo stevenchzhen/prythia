@@ -1,82 +1,109 @@
-import { supabaseAdmin } from '@/lib/supabase/admin'
-import { queryFast, queryHeavy, parseResponse, type Message, type ToolDefinition } from './client'
+import { queryFast, queryHeavy, parseResponse, type Message, type ContentBlock, type ToolDefinition } from './client'
 import { tools as aiToolDefs } from './tools'
 import { buildSystemPrompt } from './prompts'
-import { postProcess } from './post-processor'
+import { executeTool } from './tool-handlers'
+
+const MAX_TOOL_ITERATIONS = 5
 
 interface RAGQuery {
-  question: string
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>
   userId?: string
-  categories?: string[]
-  maxEvents?: number
-  includeWatchlist?: boolean
-  /** Use Sonnet for complex queries (scenario analysis, multi-event correlation) */
   useHeavyModel?: boolean
 }
 
 /**
- * Full RAG pipeline: query → retrieve → build context → generate → post-process.
+ * RAG pipeline with tool execution loop.
+ *
+ * 1. Send conversation + tools to Claude
+ * 2. If Claude responds with tool_use blocks, execute each tool
+ * 3. Append tool_use + tool_result to messages, loop
+ * 4. Return final text response
  */
 export async function runRAGPipeline(query: RAGQuery) {
-  // 1. Retrieve relevant events from the database
-  const relevantEvents = await retrieveRelevantEvents(query)
-
-  // 2. Build context and messages
   const systemPrompt = buildSystemPrompt()
-  const contextMessage = buildContextMessage(relevantEvents, query)
 
-  const messages: Message[] = [
-    { role: 'user', content: contextMessage },
-  ]
-
-  // 3. Convert tool definitions to Anthropic format
+  // Convert tool definitions to Anthropic format
   const tools: ToolDefinition[] = aiToolDefs.map((t) => ({
     name: t.function.name,
     description: t.function.description,
     input_schema: t.function.parameters as Record<string, unknown>,
   }))
 
-  // 4. Route to Haiku (fast) or Sonnet (heavy) based on query complexity
-  const queryFn = query.useHeavyModel ? queryHeavy : queryFast
-  const response = await queryFn(messages, { system: systemPrompt }, tools)
-  const result = await parseResponse(response)
+  // Build message history in Anthropic format
+  const messages: Message[] = query.messages.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }))
 
-  // 5. Post-process: validate data, inject event cards, add disclaimer
-  const processed = postProcess(result.text, relevantEvents)
+  const queryFn = query.useHeavyModel ? queryHeavy : queryFast
+  const totalUsage = { input_tokens: 0, output_tokens: 0 }
+  let finalText = ''
+  const eventsReferenced: string[] = []
+
+  for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    const response = await queryFn(messages, { system: systemPrompt, maxTokens: 4096 }, tools)
+    const result = await parseResponse(response)
+
+    totalUsage.input_tokens += result.usage.input_tokens
+    totalUsage.output_tokens += result.usage.output_tokens
+
+    // If no tool calls, we have the final text response
+    if (result.toolCalls.length === 0 || result.stopReason === 'end_turn') {
+      finalText = result.text
+      break
+    }
+
+    // Claude responded with tool calls — build the assistant message with all content blocks
+    const assistantContent: ContentBlock[] = []
+    if (result.text) {
+      assistantContent.push({ type: 'text', text: result.text })
+    }
+    for (const tc of result.toolCalls) {
+      assistantContent.push({
+        type: 'tool_use',
+        id: tc.id,
+        name: tc.name,
+        input: tc.input,
+      })
+    }
+
+    messages.push({ role: 'assistant', content: assistantContent })
+
+    // Execute each tool and build tool_result blocks
+    const toolResults: ContentBlock[] = []
+    for (const tc of result.toolCalls) {
+      const toolOutput = await executeTool(tc.name!, tc.input ?? {}, query.userId)
+
+      // Extract event IDs from tool output
+      const idMatches = toolOutput.match(/\[([^\]]+)\]/g)
+      if (idMatches) {
+        eventsReferenced.push(...idMatches.map((m) => m.slice(1, -1)).filter((id) => id.startsWith('evt_') || id.length > 5))
+      }
+
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: tc.id,
+        content: toolOutput,
+      })
+    }
+
+    messages.push({ role: 'user', content: toolResults })
+
+    // If this was the last iteration, get a final response without tools
+    if (i === MAX_TOOL_ITERATIONS - 1) {
+      const finalResponse = await queryFn(messages, { system: systemPrompt, maxTokens: 4096 })
+      const finalResult = await parseResponse(finalResponse)
+      finalText = finalResult.text
+      totalUsage.input_tokens += finalResult.usage.input_tokens
+      totalUsage.output_tokens += finalResult.usage.output_tokens
+    }
+  }
 
   return {
-    answer: processed.content,
-    events_referenced: processed.eventIds,
-    confidence: relevantEvents.length > 0 ? 'high' : 'low',
+    answer: finalText,
+    events_referenced: [...new Set(eventsReferenced)],
     model_tier: query.useHeavyModel ? 'heavy' : 'fast',
-    usage: result.usage,
+    usage: totalUsage,
     generated_at: new Date().toISOString(),
   }
-}
-
-async function retrieveRelevantEvents(query: RAGQuery) {
-  let dbQuery = supabaseAdmin
-    .from('events')
-    .select('*')
-    .eq('resolution_status', 'open')
-    .order('volume_24h', { ascending: false })
-    .limit(query.maxEvents ?? 20)
-
-  if (query.categories?.length) {
-    dbQuery = dbQuery.in('category', query.categories)
-  }
-
-  const { data } = await dbQuery
-  return data ?? []
-}
-
-function buildContextMessage(events: Record<string, unknown>[], query: RAGQuery): string {
-  const eventSummary = events
-    .map(
-      (e) =>
-        `- ${e.title}: ${((e.probability as number) * 100).toFixed(1)}% (24h: ${e.prob_change_24h}, vol: $${e.volume_24h})`
-    )
-    .join('\n')
-
-  return `${query.question}\n\nRelevant prediction market data:\n${eventSummary}`
 }

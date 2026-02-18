@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useQueryState, parseAsString, parseAsInteger } from 'nuqs'
 import useSWR from 'swr'
-import { TrendingUp, TrendingDown, ChevronDown } from 'lucide-react'
+import { TrendingUp, TrendingDown, ChevronDown, ArrowLeftRight } from 'lucide-react'
 import { useEvents } from '@/hooks/use-events'
 import { useWatchlist } from '@/hooks/use-watchlist'
 import { EventRow } from '@/components/events/event-row'
@@ -52,6 +52,14 @@ export default function FeedPage() {
     limit: 50,
   })
 
+  // Cross-platform spreads
+  const { data: spreadsData } = useSWR<{ data: Event[] }>(
+    '/api/v1/events?sort=spread&limit=6&min_spread=0.05&min_sources=2',
+    fetcher,
+    { refreshInterval: 120_000 }
+  )
+  const spreads = spreadsData?.data
+
   const hasMore = total > offset + 50
 
   return (
@@ -69,6 +77,38 @@ export default function FeedPage() {
             ))}
             {movers.losers.map((e) => (
               <MoverCard key={e.id} event={e} direction="down" onClick={() => router.push(`/event/${e.id}`)} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Cross-Platform Spreads */}
+      {spreads && spreads.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <ArrowLeftRight className="h-3.5 w-3.5 text-[rgba(247,215,76,0.6)]" />
+            <h2 className="text-sm font-medium text-zinc-400">Cross-Platform Spreads</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {spreads.map((e) => (
+              <div
+                key={e.id}
+                onClick={() => router.push(`/event/${e.id}`)}
+                className="glass-card rounded-lg p-3 cursor-pointer hover:bg-[var(--primary-ghost)] transition-colors"
+              >
+                <div className="flex items-center gap-1.5 mb-1">
+                  <ArrowLeftRight className="h-3 w-3 text-[rgba(247,215,76,0.6)]" />
+                  <span className="mono text-xs font-semibold text-[rgba(247,215,76,0.8)]">
+                    {((e.max_spread ?? 0) * 100).toFixed(1)}% spread
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400 line-clamp-2 leading-tight">
+                  {e.title}
+                </p>
+                <p className="mono text-[11px] text-zinc-600 mt-1.5">
+                  {e.source_count ?? 0} platforms
+                </p>
+              </div>
             ))}
           </div>
         </section>

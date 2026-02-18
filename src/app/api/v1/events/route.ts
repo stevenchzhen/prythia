@@ -9,6 +9,7 @@ const SORT_MAP: Record<string, string> = {
   quality: 'quality_score',
   created: 'created_at',
   resolution_date: 'resolution_date',
+  spread: 'max_spread',
 }
 
 // Parent category → subcategory expansion
@@ -25,6 +26,8 @@ export async function GET(request: NextRequest) {
   const probMax = sp.get('probMax') ? Number(sp.get('probMax')) : undefined
   const volumeMin = sp.get('volumeMin') ? Number(sp.get('volumeMin')) : undefined
   const qualityMin = sp.get('qualityMin') ? Number(sp.get('qualityMin')) : undefined
+  const minSpread = sp.get('min_spread') ? Number(sp.get('min_spread')) : undefined
+  const minSources = sp.get('min_sources') ? Number(sp.get('min_sources')) : undefined
   const sort = sp.get('sort') || 'movement'
   const order = sp.get('order') === 'asc' ? true : false // ascending = true for Supabase
   const limit = Math.min(Number(sp.get('limit')) || 50, 100)
@@ -67,6 +70,14 @@ export async function GET(request: NextRequest) {
     // Quality minimum (0-1)
     if (qualityMin !== undefined) {
       query = query.gte('quality_score', qualityMin / 100)
+    }
+
+    // Divergence filters
+    if (minSpread !== undefined) {
+      query = query.gt('max_spread', minSpread)
+    }
+    if (minSources !== undefined) {
+      query = query.gte('source_count', minSources)
     }
 
     // Sorting

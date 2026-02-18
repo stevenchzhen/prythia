@@ -1,10 +1,10 @@
 'use client'
 
 const defaultPrompts = [
-  'What changed most this week?',
-  'Compare Fed rate cut vs hold probability',
-  'Which geopolitical events have the most volume?',
-  'Generate a risk briefing for my watchlist',
+  'I run a supply chain company — what should I track?',
+  'Help me understand prediction market data',
+  'What are the biggest market movements this week?',
+  'Set up a watchlist for US policy events',
 ]
 
 interface SuggestedPromptsProps {
@@ -19,7 +19,7 @@ export function SuggestedPrompts({ prompts = defaultPrompts, onSelect }: Suggest
         <button
           key={prompt}
           onClick={() => onSelect(prompt)}
-          className="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+          className="rounded-full border border-[var(--primary-ghost)] px-3 py-1.5 text-xs text-zinc-400 hover:bg-[var(--primary-ghost)] hover:text-zinc-200 transition-colors"
         >
           {prompt}
         </button>
