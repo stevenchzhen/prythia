@@ -58,7 +58,12 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function queryHaiku(prompt: string, retries = 3): Promise<string> {
+interface HaikuResponse {
+  text: string
+  truncated: boolean
+}
+
+async function queryHaiku(prompt: string, retries = 3): Promise<HaikuResponse> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const response = await fetch(ANTHROPIC_API, {
       method: 'POST',
@@ -88,7 +93,11 @@ async function queryHaiku(prompt: string, retries = 3): Promise<string> {
     }
 
     const data = await response.json()
-    return data.content?.[0]?.text ?? ''
+    const truncated = data.stop_reason === 'max_tokens'
+    if (truncated) {
+      console.warn(`Haiku response truncated (hit max_tokens)`)
+    }
+    return { text: data.content?.[0]?.text ?? '', truncated }
   }
 
   throw new Error('Exhausted retries on rate limit')
@@ -303,7 +312,7 @@ Respond with ONLY a JSON array of proposed events. No markdown, no explanation. 
   }
 ]`
 
-  const response = await queryHaiku(prompt)
+  const { text: response, truncated } = await queryHaiku(prompt)
 
   let jsonStr = response.trim()
   if (jsonStr.startsWith('```')) {
@@ -313,14 +322,74 @@ Respond with ONLY a JSON array of proposed events. No markdown, no explanation. 
   try {
     return JSON.parse(jsonStr) as ProposedEvent[]
   } catch {
-    // Attempt to recover truncated JSON by finding the last complete object
-    const lastBrace = jsonStr.lastIndexOf('}')
-    if (lastBrace > 0) {
-      const recovered = jsonStr.substring(0, lastBrace + 1) + ']'
-      console.warn('Recovered truncated JSON from Haiku response')
-      return JSON.parse(recovered) as ProposedEvent[]
+    if (!truncated) {
+      console.error('Haiku returned invalid (non-truncated) JSON:', jsonStr.slice(0, 200))
+      throw new Error('Could not parse Haiku response')
     }
-    throw new Error('Could not parse Haiku response')
+
+    // Truncated response — find last complete JSON object in the array
+    // Walk backwards to find a `}` that closes a complete top-level object
+    const recovered = recoverTruncatedJsonArray(jsonStr)
+    if (recovered) {
+      console.warn(`Recovered ${recovered.length} events from truncated Haiku response`)
+      return recovered
+    }
+    throw new Error('Could not recover truncated JSON')
+  }
+}
+
+/**
+ * Recover a truncated JSON array by finding the last complete object.
+ * Tracks brace/bracket depth and string context to find safe cut points.
+ */
+function recoverTruncatedJsonArray(input: string): ProposedEvent[] | null {
+  // Find the opening bracket
+  const arrayStart = input.indexOf('[')
+  if (arrayStart < 0) return null
+
+  let lastCompleteObject = -1
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let i = arrayStart + 1; i < input.length; i++) {
+    const ch = input[i]
+
+    if (escaped) {
+      escaped = false
+      continue
+    }
+
+    if (ch === '\\' && inString) {
+      escaped = true
+      continue
+    }
+
+    if (ch === '"') {
+      inString = !inString
+      continue
+    }
+
+    if (inString) continue
+
+    if (ch === '{' || ch === '[') {
+      depth++
+    } else if (ch === '}' || ch === ']') {
+      depth--
+      if (depth === 0 && ch === '}') {
+        // This closes a top-level object in the array
+        lastCompleteObject = i
+      }
+    }
+  }
+
+  if (lastCompleteObject < 0) return null
+
+  const recovered = input.substring(arrayStart, lastCompleteObject + 1) + ']'
+  try {
+    return JSON.parse(recovered) as ProposedEvent[]
+  } catch {
+    return null
   }
 }
 
@@ -426,7 +495,7 @@ async function insertEvents(events: ProposedEvent[]) {
 export async function runAutoMapper(timeBudgetMs = 240_000) {
   const startTime = Date.now()
   const deadline = startTime + timeBudgetMs
-  const BATCH_SIZE = 50
+  const BATCH_SIZE = 25
 
   const contracts = await fetchUnmappedContracts()
 
