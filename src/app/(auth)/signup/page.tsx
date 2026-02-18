@@ -1,53 +1,8 @@
-'use client'
-
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Lock } from 'lucide-react'
 
 export default function SignupPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
-    }
-
-    setLoading(true)
-
-    const supabase = createClient()
-    const { error } = await supabase.auth.signUp({ email, password })
-
-    if (error) {
-      if (error.message.toLowerCase().includes('database error saving new user')) {
-        setError('Account setup failed — database migrations may need to be applied. Run: supabase db reset')
-      } else {
-        setError(error.message)
-      }
-      setLoading(false)
-      return
-    }
-
-    router.push('/feed')
-    router.refresh()
-  }
-
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
       {/* Background — matching landing page */}
@@ -65,84 +20,40 @@ export default function SignupPage() {
           </div>
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-wide text-white">
-              Create your account
+              Invite Only
             </h1>
             <p className="text-xs uppercase tracking-[0.16em] text-[rgba(247,215,76,0.7)]">
-              Join Prythia
+              Early Access
             </p>
           </div>
         </div>
 
-        {/* Form card */}
+        {/* Card */}
         <div className="glass-surface rounded-xl p-6 space-y-5">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="text-[13px] font-medium text-zinc-400">
-                Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                className="h-10 bg-[rgba(6,7,10,0.75)] border-[var(--primary-border)] text-zinc-100 placeholder:text-zinc-600 focus-visible:border-[var(--primary-muted)] focus-visible:ring-[var(--primary-ghost)]"
-              />
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(247,215,76,0.1)] border border-[rgba(247,215,76,0.2)]">
+              <Lock className="h-5 w-5 text-[var(--primary-text)]" />
             </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="text-[13px] font-medium text-zinc-400">
-                Password
-              </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                className="h-10 bg-[rgba(6,7,10,0.75)] border-[var(--primary-border)] text-zinc-100 placeholder:text-zinc-600 focus-visible:border-[var(--primary-muted)] focus-visible:ring-[var(--primary-ghost)]"
-              />
+            <div className="space-y-2">
+              <p className="text-sm text-zinc-300">
+                Prythia is currently in private beta. Access is granted on an invite-only basis.
+              </p>
+              <p className="text-sm text-zinc-400">
+                If you&apos;ve been invited, check your email for a sign-in link. Otherwise, reach out to request access.
+              </p>
             </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="confirm-password" className="text-[13px] font-medium text-zinc-400">
-                Confirm password
-              </label>
-              <Input
-                id="confirm-password"
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                className="h-10 bg-[rgba(6,7,10,0.75)] border-[var(--primary-border)] text-zinc-100 placeholder:text-zinc-600 focus-visible:border-[var(--primary-muted)] focus-visible:ring-[var(--primary-ghost)]"
-              />
-            </div>
-
-            {error && (
-              <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">
-                <p className="text-[13px] text-red-400">{error}</p>
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full h-10 rounded-lg bg-[rgba(247,215,76,0.95)] text-black font-semibold text-sm transition hover:translate-y-[-0.5px] glow-soft disabled:opacity-50 disabled:hover:translate-y-0"
+            <a
+              href="mailto:access@prythia.com"
+              className="text-sm text-[var(--primary-text)] underline-offset-4 hover:underline transition"
             >
-              {loading ? 'Creating account…' : 'Create account'}
-            </Button>
-          </form>
+              Request access
+            </a>
+          </div>
         </div>
 
         {/* Footer link */}
         <p className="mt-6 text-center text-[13px] text-zinc-500">
-          Already have an account?{' '}
+          Already have access?{' '}
           <Link
             href="/login"
             className="text-[var(--primary-text)] underline-offset-4 hover:underline transition"

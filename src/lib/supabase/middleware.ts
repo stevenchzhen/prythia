@@ -38,5 +38,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Redirect authenticated users away from auth pages to feed
+  const authPaths = ['/login', '/signup']
+  const isAuthPage = authPaths.some((path) => request.nextUrl.pathname === path)
+  if (user && isAuthPage) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/feed'
+    return NextResponse.redirect(url)
+  }
+
   return supabaseResponse
 }

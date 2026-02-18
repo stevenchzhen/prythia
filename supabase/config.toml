@@ -23,5 +23,5 @@ site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000/callback"]
 
 [auth.email]
-enable_signup = true
+enable_signup = false
 enable_confirmations = false

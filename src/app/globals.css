@@ -189,3 +189,174 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary-muted);
 }
+
+/* ─── Scroll-triggered Animations (inspired by humandelta.ai + base.org) ─── */
+
+/* Fade up — elements rise into view */
+.ls-fade-up {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ls-fade-up.is-inview {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Fade in — simple opacity reveal */
+.ls-fade-in {
+  opacity: 0;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ls-fade-in.is-inview {
+  opacity: 1;
+}
+
+/* Slide from left */
+.ls-slide-left {
+  opacity: 0;
+  transform: translateX(-40px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ls-slide-left.is-inview {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Slide from right */
+.ls-slide-right {
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ls-slide-right.is-inview {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Scale in — grows into place */
+.ls-scale-in {
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ls-scale-in.is-inview {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Line reveal — horizontal line grows from left */
+.ls-reveal-line {
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ls-reveal-line.is-inview {
+  transform: scaleX(1);
+}
+
+/* Staggered children — cascade delay based on --index */
+.ls-stagger > * {
+  transition-delay: calc(var(--index, 0) * 0.12s);
+}
+
+/* Blur entrance — base.org style */
+.ls-blur-in {
+  opacity: 0;
+  filter: blur(16px);
+  transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ls-blur-in.is-inview {
+  opacity: 1;
+  filter: blur(0);
+}
+
+/* ─── Keyframe Animations (non-scroll, auto-play) ─── */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes blur-in {
+  0% {
+    opacity: 0;
+    filter: blur(20px);
+  }
+  40% { opacity: 1; }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(247, 215, 76, 0.18),
+                0 0 50px rgba(247, 215, 76, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(247, 215, 76, 0.3),
+                0 0 80px rgba(247, 215, 76, 0.25);
+  }
+}
+
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Utility classes for auto-play animations */
+.anim-fade-up {
+  animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+}
+
+.anim-blur-in {
+  animation: blur-in 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
+.anim-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+.anim-marquee {
+  will-change: transform;
+  animation: marquee-scroll 20s linear infinite;
+}
+
+/* Delay utilities for staggering auto-play animations */
+.anim-delay-100 { animation-delay: 0.1s; }
+.anim-delay-200 { animation-delay: 0.2s; }
+.anim-delay-300 { animation-delay: 0.3s; }
+.anim-delay-400 { animation-delay: 0.4s; }
+.anim-delay-500 { animation-delay: 0.5s; }
+.anim-delay-700 { animation-delay: 0.7s; }
+.anim-delay-1000 { animation-delay: 1s; }
+
+/* ─── Reduced Motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .ls-fade-up, .ls-fade-in, .ls-slide-left, .ls-slide-right,
+  .ls-scale-in, .ls-reveal-line, .ls-blur-in {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+  .anim-fade-up, .anim-blur-in, .anim-glow-pulse, .anim-marquee {
+    animation: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+  }
+}
