@@ -38,10 +38,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect authenticated users away from auth pages to feed
-  const authPaths = ['/login', '/signup']
-  const isAuthPage = authPaths.some((path) => request.nextUrl.pathname === path)
-  if (user && isAuthPage) {
+  // Redirect authenticated users away from public pages to feed
+  const publicPaths = ['/', '/login', '/signup']
+  const isPublicPage = publicPaths.some((path) => request.nextUrl.pathname === path)
+  if (user && isPublicPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/feed'
     return NextResponse.redirect(url)
