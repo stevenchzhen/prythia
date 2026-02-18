@@ -52,9 +52,23 @@ export async function GET(
       if (!pairMap.has(key)) pairMap.set(key, row)
     }
 
+    // Fetch child outcomes if this is a parent event (price_bracket or categorical)
+    let outcomes = null
+    if (event.outcome_type && event.outcome_type !== 'binary') {
+      const { data: children } = await supabaseAdmin
+        .from('events')
+        .select('id, title, probability, prob_change_24h, volume_24h, outcome_label, outcome_index')
+        .eq('parent_event_id', id)
+        .eq('is_active', true)
+        .order('outcome_index', { ascending: true })
+
+      outcomes = children ?? []
+    }
+
     return NextResponse.json({
       ...event,
       sources: sources ?? [],
+      outcomes,
       divergence: {
         max_spread: event.max_spread ?? 0,
         pairs: Array.from(pairMap.values()),

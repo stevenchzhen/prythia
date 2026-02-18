@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useQueryState, parseAsString, parseAsInteger } from 'nuqs'
 import useSWR from 'swr'
-import { TrendingUp, TrendingDown, ChevronDown, ArrowLeftRight } from 'lucide-react'
+import { TrendingUp, TrendingDown, ChevronDown, ArrowLeftRight, Sparkles } from 'lucide-react'
 import { useEvents } from '@/hooks/use-events'
 import { useWatchlist } from '@/hooks/use-watchlist'
 import { EventRow } from '@/components/events/event-row'
@@ -52,6 +52,13 @@ export default function FeedPage() {
     limit: 50,
   })
 
+  // AI market interpretation
+  const { data: marketSummary } = useSWR<{ summary: string | null }>(
+    movers ? '/api/v1/market-summary' : null,
+    fetcher,
+    { refreshInterval: 300_000, revalidateOnFocus: false }
+  )
+
   // Cross-platform spreads
   const { data: spreadsData } = useSWR<{ data: Event[] }>(
     '/api/v1/events?sort=spread&limit=6&min_spread=0.05&min_sources=2',
@@ -80,6 +87,14 @@ export default function FeedPage() {
             ))}
           </div>
         </section>
+      )}
+
+      {/* AI Market Interpretation */}
+      {marketSummary?.summary && (
+        <div className="flex gap-2.5 rounded-lg border border-[var(--primary-ghost)] bg-[rgba(247,215,76,0.02)] px-4 py-3">
+          <Sparkles className="h-3.5 w-3.5 text-[rgba(247,215,76,0.5)] mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-zinc-400 leading-relaxed">{marketSummary.summary}</p>
+        </div>
       )}
 
       {/* Cross-Platform Spreads */}

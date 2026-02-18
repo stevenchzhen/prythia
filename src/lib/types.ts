@@ -45,6 +45,12 @@ export interface Event {
   // Divergence
   max_spread: number | null
 
+  // Multi-outcome grouping
+  parent_event_id: string | null
+  outcome_type: 'binary' | 'price_bracket' | 'categorical'
+  outcome_label: string | null
+  outcome_index: number | null
+
   // Metadata
   created_at: string
   updated_at: string

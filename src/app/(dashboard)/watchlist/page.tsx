@@ -1,20 +1,26 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import useSWR from 'swr'
 import { Bookmark } from 'lucide-react'
 import { useWatchlist } from '@/hooks/use-watchlist'
-import { useEvents } from '@/hooks/use-events'
 import { EventRow } from '@/components/events/event-row'
+import type { Event } from '@/lib/types'
+
+const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export default function WatchlistPage() {
   const router = useRouter()
-  const { watchedIds, isWatched, toggleWatchlist } = useWatchlist()
+  const { isWatched, toggleWatchlist, isLoaded } = useWatchlist()
 
-  // Fetch all watched events
-  // We use a custom fetch since useEvents doesn't support filtering by IDs
-  // Instead, we'll fetch all and filter client-side (fine for localStorage watchlists)
-  const { events, isLoading } = useEvents({ limit: 100 })
-  const watchedEvents = events.filter((e) => watchedIds.includes(e.id))
+  // Fetch watchlist events directly from API
+  const { data, isLoading } = useSWR<{ data: Event[]; ids: string[] }>(
+    '/api/v1/watchlist',
+    fetcher
+  )
+
+  const watchedEvents = data?.data ?? []
+  const watchedCount = data?.ids?.length ?? 0
 
   return (
     <div className="space-y-6">
@@ -22,17 +28,17 @@ export default function WatchlistPage() {
         <div className="flex items-center gap-2">
           <Bookmark className="h-5 w-5 text-[rgba(247,215,76,0.7)]" />
           <h1 className="text-xl font-bold text-zinc-100">Watchlist</h1>
-          {watchedIds.length > 0 && (
-            <span className="mono text-xs text-zinc-500">{watchedIds.length} events</span>
+          {watchedCount > 0 && (
+            <span className="mono text-xs text-zinc-500">{watchedCount} events</span>
           )}
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoading || !isLoaded ? (
         <div className="flex items-center justify-center py-20">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--primary-muted)] border-t-transparent" />
         </div>
-      ) : watchedIds.length === 0 ? (
+      ) : watchedCount === 0 ? (
         <div className="py-20 text-center space-y-3">
           <Bookmark className="h-8 w-8 text-zinc-700 mx-auto" />
           <p className="text-sm text-zinc-500">Nothing on your watchlist yet</p>
@@ -45,10 +51,6 @@ export default function WatchlistPage() {
           >
             Browse events
           </button>
-        </div>
-      ) : watchedEvents.length === 0 ? (
-        <div className="py-20 text-center">
-          <p className="text-sm text-zinc-500">Loading watched events...</p>
         </div>
       ) : (
         <div className="rounded-xl border border-[var(--primary-ghost)] overflow-hidden">

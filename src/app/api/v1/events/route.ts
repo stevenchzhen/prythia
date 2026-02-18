@@ -34,10 +34,17 @@ export async function GET(request: NextRequest) {
   const offset = Number(sp.get('offset')) || 0
 
   try {
+    const includeChildren = sp.get('include_children') === 'true'
+
     let query = supabaseAdmin
       .from('events')
       .select('*', { count: 'exact' })
       .eq('is_active', true)
+
+    // By default, exclude child events (outcome brackets) from the main list
+    if (!includeChildren) {
+      query = query.is('parent_event_id', null)
+    }
 
     // Full-text search
     if (search) {

@@ -44,6 +44,10 @@ interface ProposedEvent {
   subcategory: string
   tags: string[]
   resolution_date: string | null
+  outcome_type?: 'binary' | 'price_bracket' | 'categorical'
+  parent_event_id?: string
+  outcome_label?: string
+  outcome_index?: number
   source_contracts: Array<{
     platform: string
     platform_contract_id: string
@@ -115,13 +119,12 @@ async function fetchUnmappedContracts(): Promise<SourceContract[]> {
     .eq('is_active', true)
     .is('event_id', null)
     .gt('liquidity', 100)
-    // Crypto price-bet noise
-    .not('contract_title', 'ilike', '%price above%')
-    .not('contract_title', 'ilike', '%price below%')
+    // Crypto short-term noise (keep meaningful price brackets for grouping)
     .not('contract_title', 'ilike', '%price direction%')
-    .not('contract_title', 'ilike', '%price on %')
-    .not('contract_title', 'ilike', '%reaches $%')
     .not('contract_title', 'ilike', '%Up or Down%')
+    .not('contract_title', 'ilike', '%5-min%')
+    .not('contract_title', 'ilike', '%1-hour%')
+    .not('contract_title', 'ilike', '%daily close%')
     // Sports & esports noise
     .not('contract_title', 'ilike', '%Super Bowl%')
     .not('contract_title', 'ilike', '%NFL%')
@@ -219,13 +222,32 @@ IMPORTANT — Cross-platform matching:
 - Match by MEANING, not by title similarity. If two contracts predict the same real-world outcome, they belong to the same event regardless of wording.
 - Also match contracts that are subsets or closely related (e.g. "Fed cuts rates in March" and "FOMC March 2026 rate decision" are the same event).
 
+MULTI-OUTCOME TOPICS:
+When you see contracts that are different outcomes of the SAME question (e.g. price brackets, categorical options), group them as follows:
+1. Create ONE parent event with outcome_type = "price_bracket" or "categorical"
+   - Parent title should be the base question: "Bitcoin price end of 2026"
+   - Parent event has NO source_contracts (it's a container)
+2. Create CHILD events for each outcome, each with:
+   - parent_event_id = the parent's event_id
+   - outcome_label = the specific outcome (e.g. "$50k-$60k", "Cardinal Tagle")
+   - outcome_index = sort order (0, 1, 2, ...)
+   - source_contracts = the actual contracts for this outcome
+
+Examples of multi-outcome topics:
+- "Bitcoin price $50k-$60k", "$60k-$70k", "$70k-$80k" → parent: "Bitcoin price end of 2026", type: price_bracket
+- "Next Pope: Cardinal Tagle", "Cardinal Zuppi", etc → parent: "Identity of next Pope", type: categorical
+- "Fed rate 4.0-4.25%", "4.25-4.5%", "4.5-4.75%" → parent: "Fed funds rate Dec 2026", type: price_bracket
+
+Standard binary events should have outcome_type = "binary" (or omit the field).
+
 Rules:
 - FIRST check if a contract matches an EXISTING EVENT above. If so, reuse that event_id exactly.
 - Only create a NEW event if no existing event matches.
 - When reusing an existing event, still include it in the output with the same event_id so the contract gets linked.
 - AGGRESSIVELY group contracts across platforms — the primary goal is cross-platform deduplication.
-- Skip trivial/noise contracts (crypto price 5-min bets, sports matches, entertainment gossip)
-- Focus on: geopolitics, trade, economics, policy, elections, technology, science — the things that matter to analysts and quant funds
+- Skip trivial/noise contracts (short-term crypto price direction bets like "5-min" or "Up or Down today", sports matches, entertainment gossip)
+- DO include meaningful crypto/asset price brackets (end-of-year price, specific date) — group them as multi-outcome
+- Focus on: geopolitics, trade, economics, policy, elections, technology, science
 - Generate a clear event_id like "evt_us_china_tariff_q3_2026" (lowercase, underscores)
 - Generate a URL-friendly slug like "us-china-tariff-increase-q3-2026"
 - Set resolution_date as ISO date string if determinable from the title, otherwise null
@@ -236,6 +258,35 @@ ${contractList}
 
 Respond with ONLY a JSON array of proposed events. No markdown, no explanation. Example format:
 [
+  {
+    "event_id": "evt_btc_price_eoy_2026",
+    "title": "Bitcoin price end of 2026",
+    "slug": "bitcoin-price-end-of-2026",
+    "description": "What will the price of Bitcoin be at the end of 2026?",
+    "category": "technology_industry",
+    "subcategory": "crypto",
+    "tags": ["bitcoin", "crypto", "price"],
+    "resolution_date": "2026-12-31",
+    "outcome_type": "price_bracket",
+    "source_contracts": []
+  },
+  {
+    "event_id": "evt_btc_price_eoy_2026_50k_60k",
+    "title": "Bitcoin price $50k-$60k end of 2026",
+    "slug": "bitcoin-price-50k-60k-end-of-2026",
+    "description": "Will Bitcoin be between $50,000 and $60,000 at the end of 2026?",
+    "category": "technology_industry",
+    "subcategory": "crypto",
+    "tags": ["bitcoin", "crypto", "price"],
+    "resolution_date": "2026-12-31",
+    "outcome_type": "price_bracket",
+    "parent_event_id": "evt_btc_price_eoy_2026",
+    "outcome_label": "$50k-$60k",
+    "outcome_index": 0,
+    "source_contracts": [
+      {"platform": "polymarket", "platform_contract_id": "0xabc..."}
+    ]
+  },
   {
     "event_id": "evt_fed_rate_mar_2026",
     "title": "Fed cuts rates at March 2026 meeting",
@@ -277,52 +328,53 @@ async function insertEvents(events: ProposedEvent[]) {
   let eventsCreated = 0
   let mappingsCreated = 0
 
+  // Sort: parent events first (no parent_event_id), then children
+  const sorted = [...events].sort((a, b) => {
+    const aIsParent = !a.parent_event_id ? 0 : 1
+    const bIsParent = !b.parent_event_id ? 0 : 1
+    return aIsParent - bIsParent
+  })
+
   // Pre-fetch which event IDs already exist so we skip upserting them
-  const eventIds = events.filter(e => VALID_CATEGORIES.includes(e.category)).map(e => e.event_id)
+  const eventIds = sorted.filter(e => VALID_CATEGORIES.includes(e.category)).map(e => e.event_id)
   const { data: existing } = await supabaseAdmin
     .from('events')
     .select('id')
     .in('id', eventIds)
   const existingIds = new Set((existing || []).map(e => e.id))
 
-  for (const event of events) {
+  for (const event of sorted) {
     if (!VALID_CATEGORIES.includes(event.category)) continue
 
     if (!existingIds.has(event.event_id)) {
+      const eventRow = {
+        id: event.event_id,
+        title: event.title,
+        slug: event.slug,
+        description: event.description,
+        category: event.category,
+        subcategory: event.subcategory || null,
+        tags: event.tags,
+        resolution_date: event.resolution_date || null,
+        resolution_status: 'open' as const,
+        is_active: true,
+        parent_event_id: event.parent_event_id || null,
+        outcome_type: event.outcome_type || 'binary',
+        outcome_label: event.outcome_label || null,
+        outcome_index: event.outcome_index ?? null,
+      }
+
       // Try with original slug, fall back to slug-from-event-id on conflict
-      let slug = event.slug
       const { error: eventError } = await supabaseAdmin
         .from('events')
-        .upsert({
-          id: event.event_id,
-          title: event.title,
-          slug,
-          description: event.description,
-          category: event.category,
-          subcategory: event.subcategory || null,
-          tags: event.tags,
-          resolution_date: event.resolution_date || null,
-          resolution_status: 'open',
-          is_active: true,
-        }, { onConflict: 'id' })
+        .upsert(eventRow, { onConflict: 'id' })
 
       if (eventError?.message?.includes('events_slug_key')) {
         // Slug collision with a different event — retry with event_id as slug
-        slug = event.event_id.replace(/_/g, '-')
+        eventRow.slug = event.event_id.replace(/_/g, '-')
         const { error: retryError } = await supabaseAdmin
           .from('events')
-          .upsert({
-            id: event.event_id,
-            title: event.title,
-            slug,
-            description: event.description,
-            category: event.category,
-            subcategory: event.subcategory || null,
-            tags: event.tags,
-            resolution_date: event.resolution_date || null,
-            resolution_status: 'open',
-            is_active: true,
-          }, { onConflict: 'id' })
+          .upsert(eventRow, { onConflict: 'id' })
 
         if (retryError) {
           console.error(`Event upsert error [${event.event_id}]:`, retryError.message)
@@ -333,6 +385,7 @@ async function insertEvents(events: ProposedEvent[]) {
         continue
       }
       eventsCreated++
+      existingIds.add(event.event_id)
     }
 
     // Always create mappings — for both new and existing events

@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       eventsQuery = eventsQuery.in('id', filterIds)
     }
 
-    const { data: events, error: eventsError } = await eventsQuery
+    const { data: events, error: eventsError } = await eventsQuery.limit(10000)
 
     if (eventsError) {
       return NextResponse.json(
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
       contractsQuery = contractsQuery.in('event_id', filterIds)
     }
 
-    const { data: contracts, error: contractsError } = await contractsQuery
+    const { data: contracts, error: contractsError } = await contractsQuery.limit(10000)
 
     if (contractsError) {
       return NextResponse.json(
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
       calibrationQuery = calibrationQuery.in('id', filterIds)
     }
 
-    const { data: resolved } = await calibrationQuery
+    const { data: resolved } = await calibrationQuery.limit(10000)
 
     const calibrationBuckets = Array.from({ length: 10 }, (_, i) => ({
       bin: `${i * 10}-${(i + 1) * 10}%`,
