@@ -3,13 +3,13 @@
 import Link from 'next/link'
 import {
   ArrowRight,
-  BarChart3,
-  Bell,
-  Bot,
-  Code2,
-  GitCompareArrows,
-  Play,
-  TrendingUp,
+  Brain,
+  LineChart,
+  MessageSquareText,
+  Radar,
+  Search,
+  Target,
+  Zap,
 } from 'lucide-react'
 import { useScrollReveal } from '@/hooks/use-scroll-reveal'
 
@@ -56,16 +56,16 @@ export default function LandingPage() {
 
         <div className="relative max-w-3xl">
           <p className="anim-fade-up mono text-xs uppercase tracking-[0.2em] text-[var(--primary-text)] mb-6">
-            Prediction Market Intelligence
+            Decision Intelligence
           </p>
           <h1 className="anim-fade-up anim-delay-100 text-4xl font-semibold leading-[1.15] tracking-tight text-white md:text-6xl">
-            See what the world believes{' '}
-            <span className="text-[var(--primary)]">will happen next.</span>
+            Make better decisions.{' '}
+            <span className="text-[var(--primary)]">Before it matters.</span>
           </h1>
           <p className="anim-fade-up anim-delay-200 mt-6 max-w-xl text-lg leading-relaxed text-zinc-400">
-            Prythia aggregates real-time probabilities from the top prediction
-            markets into a single intelligence layer — with AI analysis,
-            cross-platform divergence detection, and alerts.
+            Prythia turns prediction market data into tailored intelligence
+            for your business — so you can price risk, time decisions, and
+            move before the market catches up.
           </p>
           <div className="anim-fade-up anim-delay-300 mt-10 flex flex-wrap gap-4">
             <Link
@@ -85,11 +85,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Platforms Bar ── */}
+      {/* ── Trust Bar ── */}
       <section className="relative z-10 border-y border-[var(--primary-border)] bg-[rgba(5,5,6,0.6)] backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-6 px-6 py-10 md:flex-row md:justify-between">
           <p className="ls-fade-in text-xs uppercase tracking-[0.16em] text-zinc-500">
-            Aggregating across
+            Powered by real-time data from
           </p>
           <div className="ls-fade-in flex flex-wrap items-center justify-center gap-8 md:gap-12">
             {['Polymarket', 'Kalshi', 'Metaculus'].map((name) => (
@@ -110,157 +110,188 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── How It Works ── */}
+      {/* ── The Problem ── */}
       <section className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <div className="mb-16 max-w-xl">
-          <p className="ls-fade-up mono text-xs uppercase tracking-[0.2em] text-[var(--primary-text)] mb-4">
-            How it works
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="ls-fade-up mono text-xs uppercase tracking-[0.2em] text-[var(--primary-text)] mb-6">
+            The problem
           </p>
-          <h2 className="ls-fade-up text-3xl font-semibold tracking-tight text-white md:text-4xl">
-            From raw markets to actionable signal
+          <h2 className="ls-fade-up text-3xl font-semibold leading-snug tracking-tight text-white md:text-4xl">
+            Every business decision is a bet on the future.
           </h2>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-3">
-          {[
-            {
-              step: '01',
-              icon: BarChart3,
-              title: 'Aggregate',
-              desc: 'We ingest thousands of contracts from Polymarket, Kalshi, and Metaculus in real time — deduplicating and linking them to canonical events.',
-            },
-            {
-              step: '02',
-              icon: GitCompareArrows,
-              title: 'Analyze',
-              desc: 'AI detects cross-platform divergence, identifies when markets disagree, and surfaces the spread — so you see arbitrage and informational gaps first.',
-            },
-            {
-              step: '03',
-              icon: Bell,
-              title: 'Act',
-              desc: 'Set threshold alerts, monitor watchlists, or pipe data directly into your models via our REST API. Built for analysts and quant teams.',
-            },
-          ].map((item, i) => (
-            <div
-              key={item.step}
-              className="ls-fade-up glass-card rounded-xl p-8 transition hover:border-[var(--primary-muted)] hover:translate-y-[-2px]"
-              style={{ '--index': i } as React.CSSProperties}
-            >
-              <div className="mb-6 flex items-center gap-4">
-                <span className="mono text-xs text-[var(--primary-text)] opacity-60">
-                  {item.step}
-                </span>
-                <div className="h-px flex-1 bg-[var(--primary-border)]" />
-              </div>
-              <item.icon className="mb-4 h-6 w-6 text-[var(--primary-text)]" />
-              <h3 className="mb-3 text-xl font-semibold text-white">
-                {item.title}
-              </h3>
-              <p className="text-sm leading-relaxed text-zinc-400">
-                {item.desc}
-              </p>
-            </div>
-          ))}
+          <p className="ls-fade-up mt-6 text-base leading-relaxed text-zinc-400">
+            Tariff changes, rate decisions, elections, commodity shifts — these
+            events reshape supply chains, pricing, and strategy overnight.
+            Prediction markets price them in real time, but the signal is
+            scattered across platforms and buried in noise.
+          </p>
+          <p className="ls-fade-up mt-4 text-base leading-relaxed text-zinc-400">
+            Prythia makes that signal usable — tailored to your industry,
+            mapped to your decisions, calibrated against outcomes.
+          </p>
         </div>
       </section>
 
-      {/* ── Features Grid ── */}
+      {/* ── 3 Key Features (Demo Sections) ── */}
       <section className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <div className="mb-16 max-w-xl">
+        <div className="mb-20 max-w-xl">
           <p className="ls-fade-up mono text-xs uppercase tracking-[0.2em] text-[var(--primary-text)] mb-4">
-            Capabilities
+            How Prythia works
           </p>
           <h2 className="ls-fade-up text-3xl font-semibold tracking-tight text-white md:text-4xl">
-            Intelligence, not just data
+            From world events to your next move
           </h2>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {[
-            {
-              icon: TrendingUp,
-              title: 'Cross-Platform Spreads',
-              desc: 'Spot when Polymarket and Kalshi disagree by 10%+ on the same event. See which platform is historically more accurate.',
-              tag: 'Divergence',
-            },
-            {
-              icon: Bot,
-              title: 'AI Assistant',
-              desc: 'Ask questions in plain English. Prythia AI searches events, builds watchlists, sets alerts, and explains what the data means.',
-              tag: 'AI',
-            },
-            {
-              icon: Bell,
-              title: 'Smart Alerts',
-              desc: 'Threshold crossings, probability movements, volume spikes, divergence triggers — delivered via webhook, Slack, or email.',
-              tag: 'Alerts',
-            },
-            {
-              icon: Code2,
-              title: 'REST API',
-              desc: 'Programmatic access to every event, probability time-series, and divergence snapshot. Built for quantitative workflows.',
-              tag: 'Developer',
-            },
-          ].map((item, i) => (
-            <div
-              key={item.title}
-              className="ls-fade-up group glass-card rounded-xl p-8 transition hover:border-[var(--primary-muted)] hover:translate-y-[-2px]"
-              style={{ '--index': i } as React.CSSProperties}
-            >
-              <div className="mb-5 flex items-center justify-between">
-                <item.icon className="h-6 w-6 text-[var(--primary-text)]" />
-                <span className="mono rounded-full border border-[var(--primary-border)] px-3 py-1 text-[10px] uppercase tracking-wider text-zinc-500 group-hover:border-[var(--primary-muted)] group-hover:text-[var(--primary-text)] transition">
-                  {item.tag}
-                </span>
+        {/* Feature 1: Live Intelligence Feed */}
+        <div className="ls-fade-up mb-24 grid items-center gap-12 md:grid-cols-2">
+          <div>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--primary-border)] bg-[var(--primary-ghost)]">
+                <Radar className="h-5 w-5 text-[var(--primary-text)]" />
               </div>
-              <h3 className="mb-3 text-lg font-semibold text-white">
-                {item.title}
-              </h3>
-              <p className="text-sm leading-relaxed text-zinc-400">
-                {item.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Demo Section ── */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <div className="mb-12 text-center">
-          <p className="ls-fade-up mono text-xs uppercase tracking-[0.2em] text-[var(--primary-text)] mb-4">
-            See it in action
-          </p>
-          <h2 className="ls-fade-up text-3xl font-semibold tracking-tight text-white md:text-4xl">
-            The intelligence layer, visualized
-          </h2>
-        </div>
-
-        {/* Demo placeholder — replace with actual screenshots or video */}
-        <div className="ls-scale-in mx-auto max-w-4xl">
-          <div className="relative overflow-hidden rounded-2xl border border-[var(--primary-border)] bg-[rgba(12,13,20,0.85)]">
-            {/* Browser chrome bar */}
-            <div className="flex items-center gap-2 border-b border-[var(--primary-border)] bg-[rgba(6,7,10,0.8)] px-4 py-3">
-              <span className="h-3 w-3 rounded-full bg-zinc-700" />
-              <span className="h-3 w-3 rounded-full bg-zinc-700" />
-              <span className="h-3 w-3 rounded-full bg-zinc-700" />
-              <span className="ml-4 flex-1 rounded-md bg-[rgba(6,7,10,0.9)] px-3 py-1.5 text-center">
-                <span className="mono text-[11px] text-zinc-600">
-                  app.prythia.com/feed
-                </span>
+              <span className="mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                01
               </span>
             </div>
-            {/* Content area */}
-            <div className="flex aspect-[16/9] items-center justify-center p-12">
-              <div className="text-center space-y-4">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[var(--primary-border)] bg-[var(--primary-ghost)]">
-                  <Play className="h-6 w-6 text-[var(--primary-text)]" />
-                </div>
-                <p className="text-sm text-zinc-500">
-                  Demo video or dashboard screenshot
-                </p>
+            <h3 className="mb-3 text-2xl font-semibold text-white">
+              Live Intelligence Feed
+            </h3>
+            <p className="text-sm leading-relaxed text-zinc-400">
+              See aggregated probabilities across all platforms in one view.
+              Track tariff changes, elections, rate decisions, and macro events
+              — filtered to what matters for your business. Every probability is
+              volume-weighted, quality-scored, and updated in real time.
+            </p>
+            <ul className="mt-5 space-y-2">
+              {[
+                'Cross-platform aggregation from 3 exchanges',
+                'Category filters for your industry',
+                'Probability sparklines showing momentum',
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2 text-sm text-zinc-400">
+                  <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-[var(--primary-muted)]" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          {/* Demo placeholder */}
+          <div className="relative overflow-hidden rounded-xl border border-[var(--primary-border)] bg-[rgba(12,13,20,0.85)]">
+            <div className="flex items-center gap-2 border-b border-[var(--primary-border)] bg-[rgba(6,7,10,0.8)] px-4 py-2.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+            </div>
+            <div className="flex aspect-video items-center justify-center">
+              <div className="text-center space-y-2">
+                <Radar className="mx-auto h-8 w-8 text-[var(--primary-text)] opacity-40" />
                 <p className="mono text-[10px] uppercase tracking-wider text-zinc-600">
-                  Coming soon
+                  Demo: Live Feed
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Feature 2: AI That Knows Your Business */}
+        <div className="ls-fade-up mb-24 grid items-center gap-12 md:grid-cols-2">
+          <div className="order-2 md:order-1">
+            <div className="relative overflow-hidden rounded-xl border border-[var(--primary-border)] bg-[rgba(12,13,20,0.85)]">
+              <div className="flex items-center gap-2 border-b border-[var(--primary-border)] bg-[rgba(6,7,10,0.8)] px-4 py-2.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+                <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+                <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+              </div>
+              <div className="flex aspect-video items-center justify-center">
+                <div className="text-center space-y-2">
+                  <MessageSquareText className="mx-auto h-8 w-8 text-[var(--primary-text)] opacity-40" />
+                  <p className="mono text-[10px] uppercase tracking-wider text-zinc-600">
+                    Demo: AI Assistant
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="order-1 md:order-2">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--primary-border)] bg-[var(--primary-ghost)]">
+                <MessageSquareText className="h-5 w-5 text-[var(--primary-text)]" />
+              </div>
+              <span className="mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                02
+              </span>
+            </div>
+            <h3 className="mb-3 text-2xl font-semibold text-white">
+              AI That Knows Your Business
+            </h3>
+            <p className="text-sm leading-relaxed text-zinc-400">
+              Tell Prythia what you do — &ldquo;I run a DTC brand sourcing from
+              Southeast Asia&rdquo; — and the AI builds a tailored watchlist of
+              events that affect your supply chain, pricing, and timing. It
+              searches real data, sets up alerts, and explains what the
+              probabilities mean for your decisions.
+            </p>
+            <ul className="mt-5 space-y-2">
+              {[
+                'Context-aware: understands your industry',
+                'Builds watchlists and alerts automatically',
+                'Explains probabilities in business terms',
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2 text-sm text-zinc-400">
+                  <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-[var(--primary-muted)]" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Feature 3: PryCalibration — Backtest Your Decisions */}
+        <div className="ls-fade-up grid items-center gap-12 md:grid-cols-2">
+          <div>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--primary-border)] bg-[var(--primary-ghost)]">
+                <Target className="h-5 w-5 text-[var(--primary-text)]" />
+              </div>
+              <span className="mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                03
+              </span>
+            </div>
+            <h3 className="mb-3 text-2xl font-semibold text-white">
+              PryCalibration
+            </h3>
+            <p className="text-sm leading-relaxed text-zinc-400">
+              Upload your past decisions — when you hedged, when you expanded,
+              when you changed suppliers — and Prythia scores them against what
+              the prediction markets knew at the time. See where you were ahead,
+              where you were late, and how to calibrate your decision-making
+              going forward. Powered by 5+ years of historical data.
+            </p>
+            <ul className="mt-5 space-y-2">
+              {[
+                'Backtest decisions against historical market data',
+                'Calibration curves: your timing vs market consensus',
+                'Identify blind spots in your decision process',
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2 text-sm text-zinc-400">
+                  <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-[var(--primary-muted)]" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="relative overflow-hidden rounded-xl border border-[var(--primary-border)] bg-[rgba(12,13,20,0.85)]">
+            <div className="flex items-center gap-2 border-b border-[var(--primary-border)] bg-[rgba(6,7,10,0.8)] px-4 py-2.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+              <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
+            </div>
+            <div className="flex aspect-video items-center justify-center">
+              <div className="text-center space-y-2">
+                <Target className="mx-auto h-8 w-8 text-[var(--primary-text)] opacity-40" />
+                <p className="mono text-[10px] uppercase tracking-wider text-zinc-600">
+                  Demo: PryCalibration
                 </p>
               </div>
             </div>
@@ -268,71 +299,56 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Mission ── */}
+      {/* ── Who It's For ── */}
       <section className="relative z-10 border-y border-[var(--primary-border)] bg-[rgba(5,5,6,0.6)] backdrop-blur-sm">
         <div className="mx-auto max-w-6xl px-6 py-24 md:py-32">
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="ls-fade-up mono text-xs uppercase tracking-[0.2em] text-[var(--primary-text)] mb-6">
-              Why Prythia
+          <div className="mb-16 max-w-xl">
+            <p className="ls-fade-up mono text-xs uppercase tracking-[0.2em] text-[var(--primary-text)] mb-4">
+              Built for every business
             </p>
-            <h2 className="ls-fade-up text-3xl font-semibold leading-snug tracking-tight text-white md:text-4xl">
-              Prediction markets are the best forecasting tool ever invented.
+            <h2 className="ls-fade-up text-3xl font-semibold tracking-tight text-white md:text-4xl">
+              If your decisions depend on what happens next, Prythia is for you
             </h2>
-            <p className="ls-fade-up mt-6 text-base leading-relaxed text-zinc-400">
-              But the data is fragmented across platforms, each with different
-              contracts, liquidity, and user bases. The same question gets priced
-              at 65% on one exchange and 78% on another — and nobody sees it.
-            </p>
-            <p className="ls-fade-up mt-4 text-base leading-relaxed text-zinc-400">
-              Prythia unifies this landscape. We map every contract to canonical
-              events, detect when platforms disagree, and surface the signal that
-              matters — for analysts, quant teams, and anyone making decisions
-              under uncertainty.
-            </p>
           </div>
-        </div>
-      </section>
 
-      {/* ── Use Cases ── */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <div className="mb-16 max-w-xl">
-          <p className="ls-fade-up mono text-xs uppercase tracking-[0.2em] text-[var(--primary-text)] mb-4">
-            Built for
-          </p>
-          <h2 className="ls-fade-up text-3xl font-semibold tracking-tight text-white md:text-4xl">
-            From analysts to algorithms
-          </h2>
-        </div>
-
-        <div className="grid gap-8 md:grid-cols-3">
-          {[
-            {
-              title: 'Research Analysts',
-              desc: 'Track geopolitical risk, policy shifts, and macro signals in real time. Replace manual monitoring with AI-curated watchlists.',
-            },
-            {
-              title: 'Quantitative Teams',
-              desc: 'Pipe probability time-series and divergence data into your models via REST API. Historical data back to 2020.',
-            },
-            {
-              title: 'Policy & Risk Teams',
-              desc: 'Monitor tariff probabilities, election outcomes, and regulatory changes. Set alerts for threshold crossings that affect your operations.',
-            },
-          ].map((item, i) => (
-            <div
-              key={item.title}
-              className="ls-fade-up"
-              style={{ '--index': i } as React.CSSProperties}
-            >
-              <div className="mb-3 h-px w-12 bg-[var(--primary-muted)]" />
-              <h3 className="mb-2 text-lg font-semibold text-white">
-                {item.title}
-              </h3>
-              <p className="text-sm leading-relaxed text-zinc-400">
-                {item.desc}
-              </p>
-            </div>
-          ))}
+          <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                icon: Search,
+                title: 'DTC & E-Commerce',
+                desc: 'Track tariff probabilities, currency shifts, and supply chain disruptions before they hit your margins.',
+              },
+              {
+                icon: LineChart,
+                title: 'Finance & Trading',
+                desc: 'Calibrate models against market consensus. Spot mispricing across platforms. Backtest strategies with 5 years of data.',
+              },
+              {
+                icon: Zap,
+                title: 'Supply Chain & Logistics',
+                desc: 'Monitor trade policy, sanctions, and commodity events. Time procurement and routing decisions with probability data.',
+              },
+              {
+                icon: Brain,
+                title: 'Strategy & Risk',
+                desc: 'Score past decisions against market intelligence. Build calibrated decision frameworks for scenario planning.',
+              },
+            ].map((item, i) => (
+              <div
+                key={item.title}
+                className="ls-fade-up"
+                style={{ '--index': i } as React.CSSProperties}
+              >
+                <item.icon className="mb-4 h-5 w-5 text-[var(--primary-text)]" />
+                <h3 className="mb-2 text-base font-semibold text-white">
+                  {item.title}
+                </h3>
+                <p className="text-sm leading-relaxed text-zinc-500">
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -342,11 +358,11 @@ export default function LandingPage() {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(247,215,76,0.08),_transparent_70%)]" />
           <div className="relative">
             <h2 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
-              Ready to see the future clearly?
+              Stop deciding in the dark.
             </h2>
-            <p className="mt-4 text-base text-zinc-400">
-              Join the private beta. Early access for analysts, quant teams, and
-              decision-makers.
+            <p className="mt-4 max-w-lg mx-auto text-base text-zinc-400">
+              Every business decision has a probability attached to it. Prythia
+              helps you see it, understand it, and act on it.
             </p>
             <div className="mt-8 flex justify-center">
               <Link
@@ -365,7 +381,6 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t border-[var(--primary-border)]">
         <div className="mx-auto max-w-6xl px-6 py-12">
           <div className="grid gap-10 md:grid-cols-4">
-            {/* Brand */}
             <div className="md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[rgba(247,215,76,0.3)] bg-[rgba(12,13,20,0.7)] text-xs font-semibold text-[var(--primary-text)]">
@@ -376,17 +391,16 @@ export default function LandingPage() {
                 </span>
               </div>
               <p className="text-xs leading-relaxed text-zinc-500">
-                Prediction market intelligence for a world of uncertainty.
+                Decision intelligence powered by prediction markets.
               </p>
             </div>
 
-            {/* Product */}
             <div>
               <h4 className="mono mb-4 text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                 Product
               </h4>
               <ul className="space-y-2.5">
-                {['Feed', 'Explorer', 'AI Chat', 'Alerts', 'API'].map((item) => (
+                {['Intelligence Feed', 'AI Assistant', 'PryCalibration', 'Alerts', 'API'].map((item) => (
                   <li key={item}>
                     <span className="text-sm text-zinc-500 cursor-default">
                       {item}
@@ -396,7 +410,6 @@ export default function LandingPage() {
               </ul>
             </div>
 
-            {/* Resources */}
             <div>
               <h4 className="mono mb-4 text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                 Resources
@@ -412,7 +425,6 @@ export default function LandingPage() {
               </ul>
             </div>
 
-            {/* Company */}
             <div>
               <h4 className="mono mb-4 text-[10px] uppercase tracking-[0.16em] text-zinc-500">
                 Company

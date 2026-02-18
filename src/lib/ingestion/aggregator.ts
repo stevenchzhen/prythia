@@ -310,12 +310,16 @@ export async function aggregateEvent(eventId: string) {
  * This runs after the ingestion step.
  */
 export async function aggregateAllEvents() {
-  // Find all events that have at least one active source contract
+  // Find all aggregatable events:
+  // - Binary events (top-level, have source contracts)
+  // - Child outcome events (have parent_event_id, have source contracts)
+  // Skip parent containers (outcome_type != 'binary' AND no parent_event_id)
   const { data: events, error } = await supabaseAdmin
     .from('events')
     .select('id')
     .eq('resolution_status', 'open')
     .eq('is_active', true)
+    .or('outcome_type.eq.binary,outcome_type.is.null,parent_event_id.not.is.null')
 
   if (error || !events) {
     console.error('Failed to fetch events for aggregation:', error)
