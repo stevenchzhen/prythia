@@ -56,24 +56,36 @@ function sleep(ms: number) {
 async function fetchAllQuestions(): Promise<MetaculusPost[]> {
   const allQuestions: MetaculusPost[] = []
   const PAGE_SIZE = 50  // Smaller pages to avoid rate limits
+  const MAX_RETRIES = 3  // Max consecutive 429 retries per page
   let offset = 0
   let hasMore = true
 
   while (hasMore) {
     const url = `${METACULUS_API}/questions/?status=open&type=binary&limit=${PAGE_SIZE}&offset=${offset}&order_by=-forecasters_count`
 
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Token ${process.env.METACULUS_API_KEY}`,
-      },
-    })
+    let retries = 0
+    let response: Response | null = null
 
-    if (response.status === 429) {
-      // Rate limited — wait and retry
-      console.warn('Metaculus rate limited, waiting 5s...')
-      await sleep(5000)
-      continue
+    while (retries < MAX_RETRIES) {
+      response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${process.env.METACULUS_API_KEY}`,
+        },
+      })
+
+      if (response.status === 429) {
+        retries++
+        console.warn(`Metaculus rate limited (attempt ${retries}/${MAX_RETRIES}), waiting 5s...`)
+        await sleep(5000)
+        continue
+      }
+      break
+    }
+
+    if (!response || response.status === 429) {
+      console.error(`Metaculus rate limited after ${MAX_RETRIES} retries at offset ${offset}, stopping`)
+      break
     }
 
     if (!response.ok) {
@@ -128,6 +140,16 @@ export async function fetchMetaculus() {
 
       const forecasterCount = q.question?.aggregations?.recency_weighted?.latest?.forecaster_count || q.nr_forecasters || 0
 
+      // Use published_at as last_trade_at baseline, but cap staleness at 48h.
+      // We don't know exactly when the last forecast was placed, so this is an
+      // honest approximation: recently-published questions get freshness credit,
+      // long-running questions get partial credit via the 72h forecast decay window.
+      const publishedAt = new Date(q.published_at || q.created_at)
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000)
+      const lastTradeAt = publishedAt > fortyEightHoursAgo
+        ? publishedAt.toISOString()
+        : fortyEightHoursAgo.toISOString()
+
       return {
         platform: 'metaculus' as const,
         platform_contract_id: String(q.id),
@@ -138,7 +160,7 @@ export async function fetchMetaculus() {
         volume_total: 0,
         liquidity: 0,
         num_traders: forecasterCount,
-        last_trade_at: new Date().toISOString(),  // Active now since we're fetching it; published_at is stale
+        last_trade_at: lastTradeAt,
         updated_at: new Date().toISOString(),
         is_active: true,
       }

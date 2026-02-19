@@ -12,9 +12,9 @@ const SORT_MAP: Record<string, string> = {
   spread: 'max_spread',
 }
 
-// Parent category → subcategory expansion
+// Parent category → subcategory expansion (must match slugs in constants.ts)
 const CATEGORY_CHILDREN: Record<string, string[]> = {
-  geopolitics: ['trade_tariffs', 'military_conflict', 'diplomacy', 'sanctions'],
+  geopolitics: ['trade_tariffs', 'military_conflict', 'diplomacy_treaties', 'sanctions_export_controls', 'elections_political'],
 }
 
 export async function GET(request: NextRequest) {

@@ -213,70 +213,84 @@ async function matchUnmapped(timeBudgetMs: number): Promise<{
         continue
       }
 
-      const best = matches[0]
+      // Filter to matches above threshold
+      const candidates = matches.filter(
+        (m: { similarity: number }) => m.similarity >= VERIFY_THRESHOLD
+      )
 
-      if (best.similarity < VERIFY_THRESHOLD) {
+      if (candidates.length === 0) {
         await stampChecked()
         skipped++
         continue
       }
 
-      // All matches get Haiku verification — embeddings can't distinguish numbers
-      let shouldAssign = false
-      try {
-        const verified = await verifyMatchWithAI(
-          contract.contract_title ?? '',
-          best.title
-        )
-        if (verified) {
-          shouldAssign = true
-          aiVerified++
-          console.log(
-            `[CrossMatcher] AI verified: "${contract.contract_title}" → "${best.title}" (${best.similarity.toFixed(3)})`
+      // Try all candidates (up to 3) with Haiku verification — embeddings can't
+      // distinguish numbers, so the correct match might be at rank 2 or 3.
+      let assignedMatch: typeof candidates[0] | null = null
+      let candidatesRejected = 0
+
+      for (const candidate of candidates) {
+        try {
+          const verified = await verifyMatchWithAI(
+            contract.contract_title ?? '',
+            candidate.title
           )
-        } else {
-          await stampChecked()
-          aiRejected++
-          console.log(
-            `[CrossMatcher] AI rejected: "${contract.contract_title}" ~ "${best.title}" (${best.similarity.toFixed(3)})`
-          )
+          if (verified) {
+            assignedMatch = candidate
+            aiVerified++
+            console.log(
+              `[CrossMatcher] AI verified: "${contract.contract_title}" → "${candidate.title}" (${candidate.similarity.toFixed(3)}, rank ${candidates.indexOf(candidate) + 1})`
+            )
+            break
+          } else {
+            candidatesRejected++
+            console.log(
+              `[CrossMatcher] AI rejected: "${contract.contract_title}" ~ "${candidate.title}" (${candidate.similarity.toFixed(3)})`
+            )
+          }
+        } catch (err) {
+          console.warn(`[CrossMatcher] AI verify failed for ${contract.id} candidate:`, err)
+          errors++
         }
-      } catch (err) {
-        console.warn(`[CrossMatcher] AI verify failed for ${contract.id}:`, err)
+      }
+
+      if (candidatesRejected > 0 && !assignedMatch) {
+        aiRejected += candidatesRejected
+      }
+
+      if (!assignedMatch) {
         await stampChecked()
+        if (candidatesRejected === 0) skipped++
+        continue
+      }
+
+      const { error: linkError } = await supabaseAdmin
+        .from('source_contracts')
+        .update({ event_id: assignedMatch.event_id })
+        .eq('id', contract.id)
+
+      if (linkError) {
+        console.error(`[CrossMatcher] Link error for ${contract.id}:`, linkError)
         errors++
         continue
       }
 
-      if (shouldAssign) {
-        const { error: linkError } = await supabaseAdmin
-          .from('source_contracts')
-          .update({ event_id: best.event_id })
-          .eq('id', contract.id)
+      // Create mapping record
+      await supabaseAdmin.from('event_source_mappings').upsert(
+        {
+          event_id: assignedMatch.event_id,
+          platform: contract.platform,
+          platform_contract_id: contract.platform_contract_id,
+          confidence: 'embedding_ai_verified',
+          mapped_by: 'voyage-3-lite+haiku',
+          mapped_at: new Date().toISOString(),
+        },
+        { onConflict: 'platform,platform_contract_id' }
+      )
 
-        if (linkError) {
-          console.error(`[CrossMatcher] Link error for ${contract.id}:`, linkError)
-          errors++
-          continue
-        }
-
-        // Create mapping record
-        await supabaseAdmin.from('event_source_mappings').upsert(
-          {
-            event_id: best.event_id,
-            platform: contract.platform,
-            platform_contract_id: contract.platform_contract_id,
-            confidence: 'embedding_ai_verified',
-            mapped_by: 'voyage-3-lite+haiku',
-            mapped_at: new Date().toISOString(),
-          },
-          { onConflict: 'platform,platform_contract_id' }
-        )
-
-        console.log(
-          `[CrossMatcher] Assigned: "${contract.contract_title}" → "${best.title}" (${best.similarity.toFixed(3)})`
-        )
-      }
+      console.log(
+        `[CrossMatcher] Assigned: "${contract.contract_title}" → "${assignedMatch.title}" (${assignedMatch.similarity.toFixed(3)})`
+      )
     } catch (err) {
       console.error(`[CrossMatcher] Error matching ${contract.id}:`, err)
       errors++

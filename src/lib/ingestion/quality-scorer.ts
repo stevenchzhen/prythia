@@ -45,17 +45,18 @@ export function calculateQualityScore(inputs: QualityInputs): number {
   const diversityScore = Math.min(sourceCount / 3, 1) * 0.25
 
   // Freshness (0 - 0.25)
-  // <5 min = full score, decays over 24 hours
+  // <5 min = full score, then linear decay to 0 at the decay window
   // For forecast-only sources, use a more generous window (forecasts update less often)
   const freshnessDecayMinutes = hasMarketSources ? 1440 : 4320 // 24h for markets, 72h for forecasts
-  const freshnessScore =
-    lastTradeMinutesAgo <= 5
-      ? 0.25
-      : lastTradeMinutesAgo <= 60
-      ? 0.25 * 0.9
-      : lastTradeMinutesAgo <= freshnessDecayMinutes
-      ? 0.25 * (1 - lastTradeMinutesAgo / freshnessDecayMinutes)
-      : 0
+  let freshnessScore: number
+  if (lastTradeMinutesAgo <= 5) {
+    freshnessScore = 0.25
+  } else if (lastTradeMinutesAgo >= freshnessDecayMinutes) {
+    freshnessScore = 0
+  } else {
+    // Smooth linear decay from 0.25 at 5 min to 0 at freshnessDecayMinutes
+    freshnessScore = 0.25 * (1 - (lastTradeMinutesAgo - 5) / (freshnessDecayMinutes - 5))
+  }
 
   // Spread tightness (0 - 0.25)
   // <2% spread = full score, >15% = zero

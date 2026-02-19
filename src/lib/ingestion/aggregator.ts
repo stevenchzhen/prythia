@@ -12,6 +12,35 @@ interface SourceData {
 }
 
 /**
+ * Normalize Kalshi contract-count volumes to dollar-equivalent.
+ * Kalshi contracts are $1 each, but their volume numbers represent contract counts
+ * while Polymarket volumes are in actual dollars. Multiplying by the contract price
+ * converts to dollar-notional for apples-to-apples comparison.
+ */
+function normalizeVolume(source: SourceData): SourceData {
+  if (source.platform === 'kalshi') {
+    const price = Math.max(source.price, 0.01) // avoid divide-by-zero edge
+    return {
+      ...source,
+      // Kalshi volume = contract count. Notional value ≈ contracts × price.
+      // This makes a 50,000-contract Kalshi market at $0.70 weigh as ~$35K,
+      // comparable to a Polymarket market with $35K dollar volume.
+      volume_total: source.volume_total * price,
+      volume_24h: source.volume_24h * price,
+      liquidity: source.liquidity, // already in dollars (liquidity_dollars)
+    }
+  }
+  return source
+}
+
+/**
+ * Clamp a probability to [0, 1] range.
+ */
+function clampProbability(p: number): number {
+  return Math.min(1, Math.max(0, p))
+}
+
+/**
  * Calculate volume-weighted average probability across platforms.
  * Higher volume = more informed signal.
  */
@@ -114,43 +143,47 @@ export async function aggregateEvent(eventId: string) {
     )[0]
   )
 
-  // 2. Apply staleness penalty
-  const adjustedSources = applyStalenessPenalty(dedupedSources as SourceData[])
+  // 2. Normalize volume units across platforms (Kalshi contracts → dollar-notional)
+  const normalizedSources = (dedupedSources as SourceData[]).map(normalizeVolume)
 
-  // 3. Calculate aggregated probability
-  const probability = volumeWeightedAverage(adjustedSources)
+  // 3. Apply staleness penalty
+  const adjustedSources = applyStalenessPenalty(normalizedSources)
 
-  // 4. Calculate totals — derive 24h volume from snapshots when API doesn't provide it
-  const totalVolume24h = await derive24hVolume(eventId, dedupedSources as SourceData[])
-  const totalVolume = dedupedSources.reduce((sum, s) => sum + (s.volume_total || 0), 0)
-  const totalLiquidity = dedupedSources.reduce((sum, s) => sum + (s.liquidity || 0), 0)
-  const totalTraders = dedupedSources.reduce((sum, s) => sum + (s.num_traders || 0), 0)
+  // 4. Calculate aggregated probability (clamped to [0, 1])
+  const rawProbability = volumeWeightedAverage(adjustedSources)
+  const probability = clampProbability(rawProbability)
 
-  // 5. Calculate cross-platform spread
-  const prices = dedupedSources.map((s) => s.price).filter((p): p is number => p !== null)
+  // 5. Calculate totals — use normalized volumes for consistency
+  const totalVolume24h = await derive24hVolume(eventId, normalizedSources)
+  const totalVolume = normalizedSources.reduce((sum, s) => sum + (s.volume_total || 0), 0)
+  const totalLiquidity = normalizedSources.reduce((sum, s) => sum + (s.liquidity || 0), 0)
+  const totalTraders = normalizedSources.reduce((sum, s) => sum + (s.num_traders || 0), 0)
+
+  // 6. Calculate cross-platform spread (use original prices, not volume-adjusted)
+  const prices = normalizedSources.map((s) => s.price).filter((p): p is number => p != null)
   const spread = prices.length > 1 ? Math.max(...prices) - Math.min(...prices) : 0
 
-  // 6. Calculate quality score
-  const lastTradeMinutesAgo = dedupedSources.reduce((min, s) => {
+  // 7. Calculate quality score
+  const lastTradeMinutesAgo = normalizedSources.reduce((min, s) => {
     if (!s.last_trade_at) return min
     const ago = (Date.now() - new Date(s.last_trade_at).getTime()) / (1000 * 60)
     return Math.min(min, ago)
   }, Infinity)
 
-  const hasMarketSources = dedupedSources.some(
+  const hasMarketSources = normalizedSources.some(
     (s) => s.platform === 'polymarket' || s.platform === 'kalshi'
   )
 
   const qualityScore = calculateQualityScore({
     totalVolume: totalVolume,
-    sourceCount: dedupedSources.length,
+    sourceCount: normalizedSources.length,
     lastTradeMinutesAgo: lastTradeMinutesAgo === Infinity ? 1440 : lastTradeMinutesAgo,
     crossPlatformSpread: spread,
     totalTraders: totalTraders,
     hasMarketSources,
   })
 
-  // 6b. Compute probability change fields from historical snapshots
+  // 7b. Compute probability change fields from historical snapshots
   const probChanges: Record<string, number | null> = {
     prob_change_24h: null,
     prob_change_7d: null,
@@ -198,7 +231,7 @@ export async function aggregateEvent(eventId: string) {
     }
   }
 
-  // 7. Update the events table with denormalized data
+  // 8. Update the events table with denormalized data
   const { error: updateError } = await supabaseAdmin
     .from('events')
     .update({
@@ -207,7 +240,7 @@ export async function aggregateEvent(eventId: string) {
       volume_total: totalVolume,
       liquidity_total: totalLiquidity,
       trader_count: totalTraders,
-      source_count: dedupedSources.length,
+      source_count: normalizedSources.length,
       quality_score: qualityScore,
       prob_change_24h: probChanges.prob_change_24h,
       prob_change_7d: probChanges.prob_change_7d,
@@ -223,7 +256,7 @@ export async function aggregateEvent(eventId: string) {
     return { eventId, updated: false, reason: 'update_error' }
   }
 
-  // 8. Insert probability snapshot for historical tracking
+  // 9. Insert probability snapshot for historical tracking
   const { error: snapshotError } = await supabaseAdmin
     .from('probability_snapshots')
     .insert({
@@ -241,17 +274,17 @@ export async function aggregateEvent(eventId: string) {
     console.error(`Snapshot insert error [${eventId}]:`, snapshotError)
   }
 
-  // Also insert per-source snapshots (store volume_total for 24h delta computation)
-  for (const source of dedupedSources) {
-    if (source.price === null) continue
+  // Also insert per-source snapshots (always store volume_total for consistent 24h delta computation)
+  for (const source of normalizedSources) {
+    if (source.price == null) continue
     const { error: srcSnapshotError } = await supabaseAdmin
       .from('probability_snapshots')
       .insert({
         event_id: eventId,
         source: source.platform,
         captured_at: new Date().toISOString(),
-        probability: source.price,
-        volume: source.volume_total || source.volume_24h,
+        probability: clampProbability(source.price),
+        volume: source.volume_total, // Always volume_total — never mix with volume_24h
         liquidity: source.liquidity,
         num_traders: source.num_traders,
       })
@@ -260,13 +293,13 @@ export async function aggregateEvent(eventId: string) {
     }
   }
 
-  // 9. Insert divergence snapshots for each platform pair
-  if (dedupedSources.length > 1) {
+  // 10. Insert divergence snapshots for each platform pair
+  if (normalizedSources.length > 1) {
     const now = new Date().toISOString()
-    for (let i = 0; i < dedupedSources.length; i++) {
-      for (let j = i + 1; j < dedupedSources.length; j++) {
-        const a = dedupedSources[i]
-        const b = dedupedSources[j]
+    for (let i = 0; i < normalizedSources.length; i++) {
+      for (let j = i + 1; j < normalizedSources.length; j++) {
+        const a = normalizedSources[i]
+        const b = normalizedSources[j]
         if (a.price === null || b.price === null) continue
 
         // Alphabetically order the pair
@@ -301,7 +334,7 @@ export async function aggregateEvent(eventId: string) {
     updated: true,
     probability,
     qualityScore,
-    sourceCount: dedupedSources.length,
+    sourceCount: normalizedSources.length,
   }
 }
 
@@ -323,18 +356,46 @@ export async function aggregateAllEvents() {
 
   if (error || !events) {
     console.error('Failed to fetch events for aggregation:', error)
-    return { eventsProcessed: 0, eventsUpdated: 0 }
+    return { eventsProcessed: 0, eventsUpdated: 0, zombiesDeactivated: 0 }
   }
 
   let eventsUpdated = 0
+  const zombieIds: string[] = []
 
   for (const event of events) {
     const result = await aggregateEvent(event.id)
-    if (result.updated) eventsUpdated++
+    if (result.updated) {
+      eventsUpdated++
+    } else if (result.reason === 'no sources') {
+      zombieIds.push(event.id)
+    }
+  }
+
+  // Deactivate zombie events: open events with zero active source contracts.
+  // This happens when all contracts for an event were removed from source platforms
+  // (typically because the market resolved). Marking is_active=false removes them
+  // from the feed so clients don't see stale data.
+  let zombiesDeactivated = 0
+  if (zombieIds.length > 0) {
+    const { error: deactivateError, count } = await supabaseAdmin
+      .from('events')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .in('id', zombieIds)
+      .eq('is_active', true)
+
+    if (deactivateError) {
+      console.error('Failed to deactivate zombie events:', deactivateError)
+    } else {
+      zombiesDeactivated = count ?? zombieIds.length
+      if (zombiesDeactivated > 0) {
+        console.log(`[Aggregator] Deactivated ${zombiesDeactivated} zombie events (no active sources)`)
+      }
+    }
   }
 
   return {
     eventsProcessed: events.length,
     eventsUpdated,
+    zombiesDeactivated,
   }
 }

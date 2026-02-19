@@ -128,6 +128,13 @@ export async function fetchPolymarket() {
 
       const liquidity = market.liquidityNum || parseFloat(market.liquidity) || 0
 
+      // Gamma API's updatedAt reflects metadata changes, not actual trades.
+      // Use it as-is (it's the best signal available) but DON'T fall back to
+      // now() — if updatedAt is missing, use a stale timestamp so the aggregator's
+      // staleness penalty can do its job honestly.
+      const fallbackStale = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString()
+      const lastTradeAt = market.updatedAt || fallbackStale
+
       contracts.push({
         platform: 'polymarket',
         platform_contract_id: market.conditionId,
@@ -138,7 +145,7 @@ export async function fetchPolymarket() {
         volume_total: parseFloat(market.volume) || 0,
         liquidity,
         num_traders: 0,  // Not available from this endpoint
-        last_trade_at: market.updatedAt || new Date().toISOString(),
+        last_trade_at: lastTradeAt,
         updated_at: new Date().toISOString(),
         is_active: true,
       })

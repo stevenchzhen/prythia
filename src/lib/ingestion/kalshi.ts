@@ -154,6 +154,12 @@ export async function fetchKalshi() {
 
       if (price <= 0 || price >= 1) continue
 
+      // Kalshi's updated_time reflects metadata changes, not actual trades.
+      // Don't fall back to now() — use a stale timestamp so the aggregator's
+      // staleness penalty works honestly.
+      const fallbackStale = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString()
+      const lastTradeAt = m.updated_time || fallbackStale
+
       contracts.push({
         platform: 'kalshi',
         platform_contract_id: m.ticker,
@@ -164,7 +170,7 @@ export async function fetchKalshi() {
         volume_total: m.volume || 0,
         liquidity: parseDollars(m.liquidity_dollars),
         num_traders: 0,
-        last_trade_at: m.updated_time || new Date().toISOString(),
+        last_trade_at: lastTradeAt,
         updated_at: new Date().toISOString(),
         is_active: true,
       })

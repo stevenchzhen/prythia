@@ -35,8 +35,19 @@ export async function GET(request: NextRequest) {
         : { source: 'metaculus', error: (metaculusResult as PromiseRejectedResult).reason?.message },
     }
 
-    // 2. Aggregate probabilities for all mapped events
-    const aggregationResult = await aggregateAllEvents()
+    // 2. Only aggregate if at least one source fetch succeeded.
+    // If all three failed, the DB still has stale prices and re-aggregating
+    // would insert duplicate snapshots without any new data.
+    const anySourceSucceeded = [polymarketResult, kalshiResult, metaculusResult]
+      .some(r => r.status === 'fulfilled')
+
+    let aggregationResult: { eventsProcessed: number; eventsUpdated: number; zombiesDeactivated: number } | { skipped: true; reason: string }
+    if (anySourceSucceeded) {
+      aggregationResult = await aggregateAllEvents()
+    } else {
+      console.error('[Ingest] All source fetches failed — skipping aggregation')
+      aggregationResult = { skipped: true, reason: 'all_sources_failed' }
+    }
 
     const duration = Date.now() - startTime
 
