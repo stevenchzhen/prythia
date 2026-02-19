@@ -393,9 +393,59 @@ export async function aggregateAllEvents() {
     }
   }
 
+  // Prune old snapshots to prevent unbounded table growth.
+  // Keep aggregated snapshots for 1 year (historical analysis).
+  // Per-source and divergence snapshots only needed for 90 days.
+  let snapshotsPruned = 0
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+  const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
+
+  // Prune per-source snapshots older than 90 days
+  const { count: srcPruned, error: srcPruneErr } = await supabaseAdmin
+    .from('probability_snapshots')
+    .delete()
+    .neq('source', 'aggregated')
+    .lt('captured_at', ninetyDaysAgo)
+
+  if (srcPruneErr) {
+    console.error('[Aggregator] Error pruning per-source snapshots:', srcPruneErr)
+  } else {
+    snapshotsPruned += srcPruned ?? 0
+  }
+
+  // Prune aggregated snapshots older than 1 year
+  const { count: aggPruned, error: aggPruneErr } = await supabaseAdmin
+    .from('probability_snapshots')
+    .delete()
+    .eq('source', 'aggregated')
+    .lt('captured_at', oneYearAgo)
+
+  if (aggPruneErr) {
+    console.error('[Aggregator] Error pruning aggregated snapshots:', aggPruneErr)
+  } else {
+    snapshotsPruned += aggPruned ?? 0
+  }
+
+  // Prune divergence snapshots older than 90 days
+  const { count: divPruned, error: divPruneErr } = await supabaseAdmin
+    .from('divergence_snapshots')
+    .delete()
+    .lt('captured_at', ninetyDaysAgo)
+
+  if (divPruneErr) {
+    console.error('[Aggregator] Error pruning divergence snapshots:', divPruneErr)
+  } else {
+    snapshotsPruned += divPruned ?? 0
+  }
+
+  if (snapshotsPruned > 0) {
+    console.log(`[Aggregator] Pruned ${snapshotsPruned} old snapshots`)
+  }
+
   return {
     eventsProcessed: events.length,
     eventsUpdated,
     zombiesDeactivated,
+    snapshotsPruned,
   }
 }

@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     const anySourceSucceeded = [polymarketResult, kalshiResult, metaculusResult]
       .some(r => r.status === 'fulfilled')
 
-    let aggregationResult: { eventsProcessed: number; eventsUpdated: number; zombiesDeactivated: number } | { skipped: true; reason: string }
+    let aggregationResult: Record<string, unknown>
     if (anySourceSucceeded) {
       aggregationResult = await aggregateAllEvents()
     } else {
