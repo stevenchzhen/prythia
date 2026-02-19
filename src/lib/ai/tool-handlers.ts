@@ -17,6 +17,10 @@ const handlers: Record<string, (input: ToolInput, userId?: string) => Promise<st
   add_to_watchlist: addToWatchlist,
   remove_from_watchlist: removeFromWatchlist,
   create_alert: createAlert,
+  save_user_profile: saveUserProfile,
+  create_decision: createDecision,
+  get_my_decisions: getMyDecisions,
+  link_event_to_decision: linkEventToDecision,
 }
 
 export async function executeTool(
@@ -364,4 +368,236 @@ async function createAlert(input: ToolInput, userId?: string): Promise<string> {
 
   if (error) return `Failed to create alert: ${error.message}`
   return `Alert created for "${event.title}" (type: ${alertType}).`
+}
+
+async function saveUserProfile(input: ToolInput, userId?: string): Promise<string> {
+  if (!userId) return 'No user session — cannot save profile.'
+  const admin = getSupabaseAdmin()
+
+  const industry = input.industry as string | undefined
+  const role = input.role as string | undefined
+  const companyDescription = input.company_description as string | undefined
+  const keyConcerns = input.key_concerns as string[] | undefined
+
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (industry) updates.industry = industry
+  if (role) updates.role = role
+  if (companyDescription) updates.company_description = companyDescription
+  if (keyConcerns) updates.key_concerns = keyConcerns
+
+  // Check if profile already exists
+  const { data: existing } = await admin
+    .from('user_preferences')
+    .select('profile_completed_at')
+    .eq('user_id', userId)
+    .single()
+
+  if (!existing?.profile_completed_at) {
+    updates.profile_completed_at = new Date().toISOString()
+  }
+
+  const { error } = await admin
+    .from('user_preferences')
+    .upsert({ user_id: userId, ...updates }, { onConflict: 'user_id' })
+
+  if (error) return `Failed to save profile: ${error.message}`
+
+  const saved = [
+    industry && `Industry: ${industry}`,
+    role && `Role: ${role}`,
+    companyDescription && `Company: ${companyDescription}`,
+    keyConcerns?.length && `Key concerns: ${keyConcerns.join(', ')}`,
+  ].filter(Boolean)
+
+  return `Profile saved!\n${saved.join('\n')}`
+}
+
+async function createDecision(input: ToolInput, userId?: string): Promise<string> {
+  if (!userId) return 'No user session — cannot create decision.'
+  const admin = getSupabaseAdmin()
+
+  const title = input.title as string
+  if (!title) return 'title is required.'
+
+  const description = input.description as string | undefined
+  const decisionType = (input.decision_type as string) || 'other'
+  const deadline = input.deadline as string | undefined
+  const tags = input.tags as string[] | undefined
+
+  const { data: decision, error } = await admin
+    .from('user_decisions')
+    .insert({
+      user_id: userId,
+      title,
+      description: description ?? null,
+      decision_type: decisionType,
+      deadline: deadline ?? null,
+      tags: tags ?? [],
+    })
+    .select('id')
+    .single()
+
+  if (error) return `Failed to create decision: ${error.message}`
+  if (!decision) return 'Failed to create decision.'
+
+  // Auto-match: search for relevant events using title + description
+  const searchText = [title, description].filter(Boolean).join(' ')
+  const searchTerms = searchText.split(/\s+/).slice(0, 6).join(' & ')
+
+  const { data: matchedEvents } = await admin
+    .from('events')
+    .select('id, title, probability')
+    .textSearch('fts', searchTerms, { type: 'websearch' })
+    .eq('resolution_status', 'open')
+    .eq('is_active', true)
+    .is('parent_event_id', null)
+    .or('outcome_type.eq.binary,outcome_type.is.null')
+    .order('volume_24h', { ascending: false })
+    .limit(3)
+
+  const linkedEvents: string[] = []
+  if (matchedEvents && matchedEvents.length > 0) {
+    for (const evt of matchedEvents) {
+      await admin
+        .from('decision_event_links')
+        .insert({
+          decision_id: decision.id,
+          event_id: evt.id,
+          link_source: 'ai',
+          prob_at_link: evt.probability,
+        })
+      const prob = evt.probability != null ? `${(evt.probability * 100).toFixed(1)}%` : 'N/A'
+      linkedEvents.push(`  - [${evt.id}] ${evt.title} (${prob})`)
+    }
+  }
+
+  let result = `Decision logged: "${title}" (${decision.id})`
+  if (linkedEvents.length > 0) {
+    result += `\n\nAuto-matched ${linkedEvents.length} relevant events:\n${linkedEvents.join('\n')}`
+  } else {
+    result += '\n\nNo events auto-matched. You can link events manually using link_event_to_decision.'
+  }
+
+  return result
+}
+
+async function getMyDecisions(input: ToolInput, userId?: string): Promise<string> {
+  if (!userId) return 'No user session — cannot fetch decisions.'
+  const admin = getSupabaseAdmin()
+
+  const statusFilter = (input.status as string) || 'active'
+
+  let dbQuery = admin
+    .from('user_decisions')
+    .select('id, title, description, decision_type, status, deadline, decided_at, outcome_notes, tags, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (statusFilter !== 'all') {
+    dbQuery = dbQuery.eq('status', statusFilter)
+  }
+
+  const { data: decisions, error } = await dbQuery
+  if (error) return `Failed to fetch decisions: ${error.message}`
+  if (!decisions || decisions.length === 0) {
+    return statusFilter === 'all'
+      ? 'No decisions in your journal yet.'
+      : `No ${statusFilter} decisions.`
+  }
+
+  // Fetch links for all decisions
+  const decisionIds = decisions.map((d) => d.id)
+  const { data: links } = await admin
+    .from('decision_event_links')
+    .select('decision_id, event_id, prob_at_link, relevance_note')
+    .in('decision_id', decisionIds)
+
+  // Fetch live event data for all linked events
+  const eventIds = [...new Set((links ?? []).map((l) => l.event_id))]
+  let eventsMap: Record<string, { title: string; probability: number | null; prob_change_24h: number | null }> = {}
+  if (eventIds.length > 0) {
+    const { data: events } = await admin
+      .from('events')
+      .select('id, title, probability, prob_change_24h')
+      .in('id', eventIds)
+    if (events) {
+      eventsMap = Object.fromEntries(events.map((e) => [e.id, e]))
+    }
+  }
+
+  return decisions.map((d) => {
+    const decLinks = (links ?? []).filter((l) => l.decision_id === d.id)
+    const deadline = d.deadline ? ` | deadline: ${d.deadline}` : ''
+    const status = d.status === 'decided' ? ' [DECIDED]' : ''
+
+    let entry = `**${d.title}**${status} (${d.id})\n  Type: ${d.decision_type}${deadline}`
+
+    if (d.outcome_notes) {
+      entry += `\n  Outcome: ${d.outcome_notes}`
+    }
+
+    if (decLinks.length > 0) {
+      entry += '\n  Linked events:'
+      for (const link of decLinks) {
+        const evt = eventsMap[link.event_id]
+        if (evt) {
+          const currentProb = evt.probability != null ? `${(evt.probability * 100).toFixed(1)}%` : 'N/A'
+          const linkedProb = link.prob_at_link != null ? `${(Number(link.prob_at_link) * 100).toFixed(1)}%` : '?'
+          const change24h = evt.prob_change_24h != null ? `${evt.prob_change_24h > 0 ? '+' : ''}${(evt.prob_change_24h * 100).toFixed(1)}%` : ''
+          entry += `\n    - ${evt.title}: ${currentProb} (was ${linkedProb} when linked, 24h: ${change24h})`
+        }
+      }
+    }
+
+    return entry
+  }).join('\n\n')
+}
+
+async function linkEventToDecision(input: ToolInput, userId?: string): Promise<string> {
+  if (!userId) return 'No user session — cannot link event.'
+  const admin = getSupabaseAdmin()
+
+  const decisionId = input.decision_id as string
+  const eventId = input.event_id as string
+  const relevanceNote = input.relevance_note as string | undefined
+
+  if (!decisionId) return 'decision_id is required.'
+  if (!eventId) return 'event_id is required.'
+
+  // Verify decision ownership
+  const { data: decision } = await admin
+    .from('user_decisions')
+    .select('id, title')
+    .eq('id', decisionId)
+    .eq('user_id', userId)
+    .single()
+
+  if (!decision) return 'Decision not found or not owned by you.'
+
+  // Verify event exists and get current probability
+  const { data: event } = await admin
+    .from('events')
+    .select('id, title, probability')
+    .eq('id', eventId)
+    .single()
+
+  if (!event) return `Event "${eventId}" not found.`
+
+  const { error } = await admin
+    .from('decision_event_links')
+    .upsert(
+      {
+        decision_id: decisionId,
+        event_id: eventId,
+        link_source: 'ai',
+        prob_at_link: event.probability,
+        relevance_note: relevanceNote ?? null,
+      },
+      { onConflict: 'decision_id,event_id' }
+    )
+
+  if (error) return `Failed to link event: ${error.message}`
+
+  const prob = event.probability != null ? `${(event.probability * 100).toFixed(1)}%` : 'N/A'
+  return `Linked "${event.title}" (${prob}) to decision "${decision.title}".`
 }

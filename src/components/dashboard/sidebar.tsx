@@ -7,6 +7,7 @@ import {
   Activity,
   BarChart3,
   Bell,
+  BookOpen,
   Bookmark,
   Compass,
   LogOut,
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'AI Chat', href: '/chat', icon: MessageSquare },
   { name: 'Alerts', href: '/alerts', icon: Bell },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { name: 'Decisions', href: '/decisions', icon: BookOpen },
   { name: 'PryCalibration', href: '/calibration', icon: Target },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]

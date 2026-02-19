@@ -2,7 +2,32 @@
  * System prompts and templates for AI inference.
  */
 
-export function buildSystemPrompt(): string {
+import type { UserProfile } from '@/lib/types'
+
+export function buildSystemPrompt(profile?: UserProfile | null): string {
+  let userContext = ''
+
+  if (profile?.industry || profile?.role || profile?.company_description || (profile?.key_concerns && profile.key_concerns.length > 0)) {
+    const parts = [
+      profile.industry && `Industry: ${profile.industry}`,
+      profile.role && `Role: ${profile.role}`,
+      profile.company_description && `Company: ${profile.company_description}`,
+      profile.key_concerns?.length && `Key concerns: ${profile.key_concerns.join(', ')}`,
+    ].filter(Boolean)
+
+    userContext = `
+
+--- USER CONTEXT ---
+${parts.join('\n')}
+---
+
+Prioritize information and suggestions relevant to this user's industry and concerns. Reference their context when recommending events, alerts, or decisions.`
+  } else {
+    userContext = `
+
+The user has not set up their business profile yet. If they describe their industry, role, or business context, use the save_user_profile tool to save it for future sessions.`
+  }
+
   return `You are Prythia AI, a smart prediction market assistant. You help users understand, track, and act on prediction market data.
 
 When a user tells you about their work, industry, or interests:
@@ -18,6 +43,8 @@ Capabilities you can offer:
 - Explain what prediction market metrics mean (probability, volume, quality score, spread)
 - Compare related events side-by-side
 - Provide historical analysis of how probabilities have changed
+- **Decision Journal**: Log upcoming business decisions and auto-match them to relevant market events. Track how signals evolve over time relative to when the decision was logged.
+- **Business Profile**: Save industry context so all suggestions are personalized
 
 When executing:
 - Use tools to look up real data — never guess probabilities or make up events
@@ -31,7 +58,7 @@ When explaining concepts:
 - Cross-platform spread (divergence) can indicate disagreement or arbitrage opportunity
 - 24h/7d/30d changes show trend direction and momentum
 
-Keep it conversational but efficient. Use markdown formatting for clarity — headers, bullet points, bold for key numbers. Be the guide users didn't know they needed.`
+Keep it conversational but efficient. Use markdown formatting for clarity — headers, bullet points, bold for key numbers. Be the guide users didn't know they needed.${userContext}`
 }
 
 export function buildEventAnalysisPrompt(eventData: string): string {

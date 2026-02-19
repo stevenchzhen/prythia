@@ -155,4 +155,87 @@ export const tools = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'save_user_profile',
+      description:
+        'Save the user\'s business profile (industry, role, company description, key concerns). Call this when the user describes their business context.',
+      parameters: {
+        type: 'object',
+        properties: {
+          industry: { type: 'string', description: 'The user\'s industry (e.g. logistics, ecommerce, finance, manufacturing, healthcare, energy, technology, consulting)' },
+          role: { type: 'string', description: 'The user\'s role or job title' },
+          company_description: { type: 'string', description: 'Brief description of the user\'s company or business' },
+          key_concerns: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Key business concerns or topics the user wants to track (e.g. tariffs, oil prices, interest rates)',
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'create_decision',
+      description:
+        'Log an upcoming business decision to the user\'s Decision Journal. Auto-matches relevant prediction market events. Call this when the user mentions a decision they\'re considering.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Short title for the decision' },
+          description: { type: 'string', description: 'Detailed description of the decision context' },
+          decision_type: {
+            type: 'string',
+            enum: ['hedge', 'expand', 'contract', 'price_change', 'supplier_switch', 'hold', 'hire', 'invest', 'launch', 'other'],
+            description: 'Type of business decision',
+          },
+          deadline: { type: 'string', description: 'Decision deadline (YYYY-MM-DD format)' },
+          tags: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Tags for categorization',
+          },
+        },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_my_decisions',
+      description:
+        'Get the user\'s decisions from their Decision Journal with linked prediction market events and live probability data.',
+      parameters: {
+        type: 'object',
+        properties: {
+          status: {
+            type: 'string',
+            enum: ['active', 'decided', 'all'],
+            description: 'Filter by decision status (default: active)',
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'link_event_to_decision',
+      description:
+        'Link a prediction market event to one of the user\'s decisions. Captures the current probability as a reference point.',
+      parameters: {
+        type: 'object',
+        properties: {
+          decision_id: { type: 'string', description: 'The decision ID (starts with udec_)' },
+          event_id: { type: 'string', description: 'The event ID to link' },
+          relevance_note: { type: 'string', description: 'Why this event is relevant to the decision' },
+        },
+        required: ['decision_id', 'event_id'],
+      },
+    },
+  },
 ]

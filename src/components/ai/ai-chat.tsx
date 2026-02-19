@@ -16,6 +16,7 @@ import {
   PanelLeftOpen,
 } from 'lucide-react'
 import { SuggestedPrompts } from './suggested-prompts'
+import type { UserProfile } from '@/lib/types'
 
 interface Message {
   id: string
@@ -47,12 +48,17 @@ export function AIChat() {
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Load conversation list on mount
+  // Load conversation list and profile on mount
   useEffect(() => {
     loadConversations()
+    fetch('/api/v1/profile')
+      .then((r) => r.json())
+      .then((d) => { if (d.data) setProfile(d.data) })
+      .catch(() => {})
   }, [])
 
   // Auto-scroll on new messages
@@ -250,7 +256,7 @@ export function AIChat() {
               <div className="text-center space-y-4">
                 <div className="text-[rgba(247,215,76,0.6)] text-2xl mb-2">&#10022;</div>
                 <p className="text-sm text-zinc-400">Ask Prythia AI about prediction markets</p>
-                <SuggestedPrompts onSelect={handlePromptSelect} />
+                <SuggestedPrompts profile={profile} onSelect={handlePromptSelect} />
               </div>
             </div>
           )}

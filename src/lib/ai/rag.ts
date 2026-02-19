@@ -2,6 +2,8 @@ import { queryFast, queryHeavy, parseResponse, type Message, type ContentBlock, 
 import { tools as aiToolDefs } from './tools'
 import { buildSystemPrompt } from './prompts'
 import { executeTool } from './tool-handlers'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import type { UserProfile } from '@/lib/types'
 
 const MAX_TOOL_ITERATIONS = 5
 
@@ -20,7 +22,21 @@ interface RAGQuery {
  * 4. Return final text response
  */
 export async function runRAGPipeline(query: RAGQuery) {
-  const systemPrompt = buildSystemPrompt()
+  // Fetch user profile for personalized system prompt
+  let profile: UserProfile | null = null
+  if (query.userId) {
+    const admin = getSupabaseAdmin()
+    const { data } = await admin
+      .from('user_preferences')
+      .select('industry, role, company_description, key_concerns, profile_completed_at')
+      .eq('user_id', query.userId)
+      .single()
+    if (data) {
+      profile = data as UserProfile
+    }
+  }
+
+  const systemPrompt = buildSystemPrompt(profile)
 
   // Convert tool definitions to Anthropic format
   const tools: ToolDefinition[] = aiToolDefs.map((t) => ({

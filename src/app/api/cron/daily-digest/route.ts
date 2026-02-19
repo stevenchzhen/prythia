@@ -62,9 +62,54 @@ export async function GET(request: NextRequest) {
 
         if (!watchlistData) continue
 
+        // 4b. Fetch active decisions with linked events
+        let decisionsData = ''
+        const { data: decisions } = await supabase
+          .from('user_decisions')
+          .select('id, title, decision_type, deadline')
+          .eq('user_id', pref.user_id)
+          .eq('status', 'active')
+          .limit(10)
+
+        if (decisions && decisions.length > 0) {
+          const decisionIds = decisions.map((d) => d.id)
+          const { data: links } = await supabase
+            .from('decision_event_links')
+            .select('decision_id, event_id, prob_at_link')
+            .in('decision_id', decisionIds)
+
+          const linkedEventIds = [...new Set((links ?? []).map((l) => l.event_id))]
+          let eventsMap: Record<string, Record<string, unknown>> = {}
+          if (linkedEventIds.length > 0) {
+            const { data: events } = await supabase
+              .from('events')
+              .select('id, title, probability, prob_change_24h')
+              .in('id', linkedEventIds)
+            if (events) {
+              eventsMap = Object.fromEntries(events.map((e) => [e.id, e]))
+            }
+          }
+
+          decisionsData = '\n\nActive Decisions:\n' + decisions.map((d) => {
+            const decLinks = (links ?? []).filter((l) => l.decision_id === d.id)
+            const deadline = d.deadline ? ` (deadline: ${d.deadline})` : ''
+            let entry = `- ${d.title} [${d.decision_type}]${deadline}`
+            for (const link of decLinks) {
+              const evt = eventsMap[link.event_id]
+              if (evt) {
+                const prob = ((Number(evt.probability) || 0) * 100).toFixed(1)
+                const linkedProb = link.prob_at_link != null ? ((Number(link.prob_at_link) || 0) * 100).toFixed(1) : '?'
+                entry += `\n  Signal: ${evt.title}: ${prob}% (was ${linkedProb}% when linked)`
+              }
+            }
+            return entry
+          }).join('\n')
+        }
+
         // 5. Generate AI briefing
+        const briefingPrompt = buildDailyBriefingPrompt(watchlistData + decisionsData)
         const response = await queryFast(
-          [{ role: 'user', content: buildDailyBriefingPrompt(watchlistData) }],
+          [{ role: 'user', content: briefingPrompt }],
           { maxTokens: 1500, temperature: 0.3 }
         )
         const { text: briefing } = await parseResponse(response)

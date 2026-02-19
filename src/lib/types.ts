@@ -178,6 +178,57 @@ export interface UserPreferences {
   quiet_hours_start: string | null
   quiet_hours_end: string | null
   show_ai_analysis: boolean
+  // Profile fields
+  industry: string | null
+  role: string | null
+  company_description: string | null
+  key_concerns: string[]
+  profile_completed_at: string | null
+}
+
+export interface UserProfile {
+  industry: string | null
+  role: string | null
+  company_description: string | null
+  key_concerns: string[]
+  profile_completed_at: string | null
+}
+
+export type DecisionType =
+  | 'hedge' | 'expand' | 'contract' | 'price_change'
+  | 'supplier_switch' | 'hold' | 'hire' | 'invest' | 'launch' | 'other'
+
+export type DecisionStatus = 'active' | 'decided' | 'archived'
+
+export interface UserDecision {
+  id: string
+  user_id: string
+  title: string
+  description: string | null
+  decision_type: DecisionType
+  status: DecisionStatus
+  deadline: string | null
+  decided_at: string | null
+  outcome_notes: string | null
+  tags: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface DecisionEventLink {
+  id: string
+  decision_id: string
+  event_id: string
+  link_source: 'ai' | 'user' | 'system'
+  prob_at_link: number | null
+  relevance_note: string | null
+  created_at: string
+}
+
+export interface DecisionWithEvents extends UserDecision {
+  links: Array<DecisionEventLink & {
+    event: Pick<Event, 'id' | 'title' | 'probability' | 'prob_change_24h' | 'category'> | null
+  }>
 }
 
 // ─── AI Models ─────────────────────────────────────────────────────
