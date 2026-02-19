@@ -48,7 +48,7 @@ export async function runRAGPipeline(query: RAGQuery) {
     totalUsage.output_tokens += result.usage.output_tokens
 
     // If no tool calls, we have the final text response
-    if (result.toolCalls.length === 0 || result.stopReason === 'end_turn') {
+    if (result.toolCalls.length === 0) {
       finalText = result.text
       break
     }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import type { Event } from '@/lib/types'
 
 export async function GET(request: NextRequest) {
@@ -7,43 +7,48 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Number(sp.get('limit')) || 3, 10)
 
   try {
-    // Gainers: largest positive prob_change_24h
-    const { data: gainers, error: gErr } = await supabaseAdmin
-      .from('events')
-      .select('*')
-      .eq('is_active', true)
-      .not('prob_change_24h', 'is', null)
-      .gt('prob_change_24h', 0)
-      .order('prob_change_24h', { ascending: false })
-      .limit(limit)
+    const supabase = getSupabaseAdmin()
 
-    if (gErr) {
+    // Run gainers and losers queries in parallel
+    const [gainersResult, losersResult] = await Promise.all([
+      supabase
+        .from('events')
+        .select('*')
+        .eq('is_active', true)
+        .is('parent_event_id', null)
+        .or('outcome_type.eq.binary,outcome_type.is.null')
+        .not('prob_change_24h', 'is', null)
+        .gt('prob_change_24h', 0)
+        .order('prob_change_24h', { ascending: false })
+        .limit(limit),
+      supabase
+        .from('events')
+        .select('*')
+        .eq('is_active', true)
+        .is('parent_event_id', null)
+        .or('outcome_type.eq.binary,outcome_type.is.null')
+        .not('prob_change_24h', 'is', null)
+        .lt('prob_change_24h', 0)
+        .order('prob_change_24h', { ascending: true })
+        .limit(limit),
+    ])
+
+    if (gainersResult.error) {
       return NextResponse.json(
-        { error: { code: 'QUERY_ERROR', message: gErr.message } },
+        { error: { code: 'QUERY_ERROR', message: gainersResult.error.message } },
         { status: 500 }
       )
     }
-
-    // Losers: largest negative prob_change_24h
-    const { data: losers, error: lErr } = await supabaseAdmin
-      .from('events')
-      .select('*')
-      .eq('is_active', true)
-      .not('prob_change_24h', 'is', null)
-      .lt('prob_change_24h', 0)
-      .order('prob_change_24h', { ascending: true })
-      .limit(limit)
-
-    if (lErr) {
+    if (losersResult.error) {
       return NextResponse.json(
-        { error: { code: 'QUERY_ERROR', message: lErr.message } },
+        { error: { code: 'QUERY_ERROR', message: losersResult.error.message } },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
-      gainers: (gainers as Event[]) ?? [],
-      losers: (losers as Event[]) ?? [],
+      gainers: (gainersResult.data as Event[]) ?? [],
+      losers: (losersResult.data as Event[]) ?? [],
     })
   } catch {
     return NextResponse.json(

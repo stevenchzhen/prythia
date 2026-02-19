@@ -41,9 +41,12 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact' })
       .eq('is_active', true)
 
-    // By default, exclude child events (outcome brackets) from the main list
+    // By default, exclude child events AND parent containers from the main feed
+    // Only show: binary events (top-level) and parent containers with outcome_type set
     if (!includeChildren) {
       query = query.is('parent_event_id', null)
+      // Exclude parent containers (price_bracket/categorical) — they have no meaningful probability
+      query = query.or('outcome_type.eq.binary,outcome_type.is.null')
     }
 
     // Full-text search
@@ -106,6 +109,7 @@ export async function GET(request: NextRequest) {
     const events = (data as Event[]) ?? []
 
     // Batch-fetch sparkline data (last 20 aggregated snapshots per event)
+    // Limit to 20 * event_count rows to avoid fetching thousands of rows
     let eventsWithSparklines = events
     if (events.length > 0) {
       const eventIds = events.map((e) => e.id)
@@ -115,9 +119,9 @@ export async function GET(request: NextRequest) {
         .in('event_id', eventIds)
         .eq('source', 'aggregated')
         .order('captured_at', { ascending: false })
+        .limit(eventIds.length * 20)
 
       if (snapshots && snapshots.length > 0) {
-        // Group by event_id and take last 20 per event
         const sparklineMap = new Map<string, number[]>()
         for (const snap of snapshots) {
           const existing = sparklineMap.get(snap.event_id) ?? []

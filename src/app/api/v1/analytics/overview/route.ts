@@ -7,26 +7,47 @@ export async function GET(request: NextRequest) {
   const filterIds = eventIds ? eventIds.split(',').filter(Boolean) : null
 
   try {
-    // Fetch events (optionally filtered to watchlist)
+    // Build all three queries in parallel
     let eventsQuery = supabase
       .from('events')
       .select('id, category, probability, volume_24h, volume_total, prob_change_24h, source_count, resolution_status, is_active')
       .eq('is_active', true)
+      .is('parent_event_id', null)
+      .or('outcome_type.eq.binary,outcome_type.is.null')
+
+    let contractsQuery = supabase
+      .from('source_contracts')
+      .select('platform, price, volume_total, event_id, is_active')
+      .eq('is_active', true)
+
+    let calibrationQuery = supabase
+      .from('events')
+      .select('id, probability, resolution_status')
+      .in('resolution_status', ['resolved_yes', 'resolved_no'])
+      .is('parent_event_id', null)
+      .or('outcome_type.eq.binary,outcome_type.is.null')
 
     if (filterIds && filterIds.length > 0) {
       eventsQuery = eventsQuery.in('id', filterIds)
+      contractsQuery = contractsQuery.in('event_id', filterIds)
+      calibrationQuery = calibrationQuery.in('id', filterIds)
     }
 
-    const { data: events, error: eventsError } = await eventsQuery.limit(10000)
+    // Execute all queries in parallel
+    const [eventsResult, contractsResult, calibrationResult] = await Promise.all([
+      eventsQuery.limit(10000),
+      contractsQuery.limit(10000),
+      calibrationQuery.limit(10000),
+    ])
 
-    if (eventsError) {
+    if (eventsResult.error) {
       return NextResponse.json(
-        { error: { code: 'QUERY_ERROR', message: eventsError.message } },
+        { error: { code: 'QUERY_ERROR', message: eventsResult.error.message } },
         { status: 500 }
       )
     }
 
-    const activeEvents = events ?? []
+    const activeEvents = eventsResult.data ?? []
 
     // Totals
     const totalEvents = activeEvents.length
@@ -56,27 +77,9 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.count - a.count)
 
-    // Fetch source contracts grouped by platform
-    let contractsQuery = supabase
-      .from('source_contracts')
-      .select('platform, price, volume_total, event_id, is_active')
-      .eq('is_active', true)
-
-    if (filterIds && filterIds.length > 0) {
-      contractsQuery = contractsQuery.in('event_id', filterIds)
-    }
-
-    const { data: contracts, error: contractsError } = await contractsQuery.limit(10000)
-
-    if (contractsError) {
-      return NextResponse.json(
-        { error: { code: 'QUERY_ERROR', message: contractsError.message } },
-        { status: 500 }
-      )
-    }
-
+    // Platform stats from contracts
     const platformMap = new Map<string, { count: number; volume: number; priceSum: number }>()
-    for (const c of contracts ?? []) {
+    for (const c of contractsResult.data ?? []) {
       const plat = c.platform
       const existing = platformMap.get(plat) ?? { count: 0, volume: 0, priceSum: 0 }
       existing.count++
@@ -104,17 +107,8 @@ export async function GET(request: NextRequest) {
       probBuckets[idx].count++
     }
 
-    // Calibration data — resolved events
-    let calibrationQuery = supabase
-      .from('events')
-      .select('id, probability, resolution_status')
-      .in('resolution_status', ['resolved_yes', 'resolved_no'])
-
-    if (filterIds && filterIds.length > 0) {
-      calibrationQuery = calibrationQuery.in('id', filterIds)
-    }
-
-    const { data: resolved } = await calibrationQuery.limit(10000)
+    // Calibration data from resolved events
+    const resolved = calibrationResult.data
 
     const calibrationBuckets = Array.from({ length: 10 }, (_, i) => ({
       bin: `${i * 10}-${(i + 1) * 10}%`,

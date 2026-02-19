@@ -12,6 +12,7 @@ import {
   LogOut,
   MessageSquare,
   Settings,
+  Target,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -23,6 +24,7 @@ const navigation = [
   { name: 'AI Chat', href: '/chat', icon: MessageSquare },
   { name: 'Alerts', href: '/alerts', icon: Bell },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { name: 'PryCalibration', href: '/calibration', icon: Target },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 

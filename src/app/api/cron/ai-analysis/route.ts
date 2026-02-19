@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
       .from('events')
       .select('id, title, slug, description, category, subcategory, probability, prob_change_24h, prob_change_7d, prob_change_30d, prob_high_30d, prob_low_30d, volume_24h, volume_total, liquidity_total, trader_count, source_count, quality_score, resolution_status, resolution_date, resolution_criteria, ai_analysis_updated_at')
       .eq('is_active', true)
+      .is('parent_event_id', null)
+      .or('outcome_type.eq.binary,outcome_type.is.null')
       .gte('volume_24h', MIN_VOLUME_FOR_AI_ANALYSIS)
       .order('volume_24h', { ascending: false })
       .limit(MAX_EVENTS_PER_RUN * 2)

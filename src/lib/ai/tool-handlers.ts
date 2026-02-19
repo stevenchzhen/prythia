@@ -3,7 +3,7 @@
  * Each handler queries Supabase and returns a formatted string for Claude.
  */
 
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
 type ToolInput = Record<string, unknown>
 
@@ -36,17 +36,20 @@ export async function executeTool(
 }
 
 async function searchEvents(input: ToolInput): Promise<string> {
+  const admin = getSupabaseAdmin()
   const query = input.query as string | undefined
   const category = input.category as string | undefined
   const probMin = input.prob_min as number | undefined
   const probMax = input.prob_max as number | undefined
   const limit = Math.min((input.limit as number) || 10, 20)
 
-  let dbQuery = supabaseAdmin
+  let dbQuery = admin
     .from('events')
     .select('id, title, category, probability, prob_change_24h, volume_24h, source_count, max_spread, resolution_date')
     .eq('resolution_status', 'open')
     .eq('is_active', true)
+    .is('parent_event_id', null)
+    .or('outcome_type.eq.binary,outcome_type.is.null')
     .order('volume_24h', { ascending: false })
     .limit(limit)
 
@@ -79,22 +82,25 @@ async function searchEvents(input: ToolInput): Promise<string> {
 }
 
 async function getEventProbability(input: ToolInput): Promise<string> {
+  const admin = getSupabaseAdmin()
   const eventId = input.event_id as string | undefined
   const searchQuery = input.search_query as string | undefined
 
   let event
   if (eventId) {
-    const { data } = await supabaseAdmin
+    const { data } = await admin
       .from('events')
       .select('*')
       .eq('id', eventId)
       .single()
     event = data
   } else if (searchQuery) {
-    const { data } = await supabaseAdmin
+    const { data } = await admin
       .from('events')
       .select('*')
       .textSearch('fts', searchQuery.split(/\s+/).join(' & '), { type: 'websearch' })
+      .is('parent_event_id', null)
+      .or('outcome_type.eq.binary,outcome_type.is.null')
       .limit(1)
       .single()
     event = data
@@ -125,32 +131,34 @@ async function getEventProbability(input: ToolInput): Promise<string> {
 }
 
 async function getEventHistory(input: ToolInput): Promise<string> {
+  const admin = getSupabaseAdmin()
   const eventId = input.event_id as string
   const days = Math.min((input.days as number) || 30, 90)
 
   const since = new Date()
   since.setDate(since.getDate() - days)
 
-  const { data, error } = await supabaseAdmin
-    .from('daily_stats')
-    .select('date, prob_open, prob_close, prob_high, prob_low, volume_total')
-    .eq('event_id', eventId)
-    .gte('date', since.toISOString().slice(0, 10))
-    .order('date', { ascending: true })
+  // Fetch history and event title in parallel
+  const [historyResult, eventResult] = await Promise.all([
+    admin
+      .from('daily_stats')
+      .select('date, prob_open, prob_close, prob_high, prob_low, volume_total')
+      .eq('event_id', eventId)
+      .gte('date', since.toISOString().slice(0, 10))
+      .order('date', { ascending: true }),
+    admin
+      .from('events')
+      .select('title')
+      .eq('id', eventId)
+      .single(),
+  ])
 
+  const { data, error } = historyResult
   if (error) return `History error: ${error.message}`
   if (!data || data.length === 0) return 'No historical data available for this event.'
 
-  // Get event title
-  const { data: event } = await supabaseAdmin
-    .from('events')
-    .select('title')
-    .eq('id', eventId)
-    .single()
+  const header = `History for ${eventResult.data?.title ?? eventId} (last ${days} days, ${data.length} data points):\n`
 
-  const header = `History for ${event?.title ?? eventId} (last ${days} days, ${data.length} data points):\n`
-
-  // Summarize: first, last, high, low
   const first = data[0]
   const last = data[data.length - 1]
   const allCloses = data.map((d) => d.prob_close).filter((v): v is number => v != null)
@@ -164,7 +172,6 @@ async function getEventHistory(input: ToolInput): Promise<string> {
     `Period low: ${(low * 100).toFixed(1)}%`,
   ].join('\n')
 
-  // Show last 10 data points
   const recent = data.slice(-10)
   const table = recent
     .map((d) => `  ${d.date}: ${d.prob_close != null ? (d.prob_close * 100).toFixed(1) : '?'}% (vol: $${d.volume_total != null ? Math.round(d.volume_total).toLocaleString() : '0'})`)
@@ -174,10 +181,11 @@ async function getEventHistory(input: ToolInput): Promise<string> {
 }
 
 async function compareEvents(input: ToolInput): Promise<string> {
+  const admin = getSupabaseAdmin()
   const eventIds = input.event_ids as string[]
   if (!eventIds?.length) return 'No event IDs provided.'
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await admin
     .from('events')
     .select('id, title, category, probability, prob_change_24h, prob_change_7d, volume_24h, source_count, max_spread')
     .in('id', eventIds)
@@ -197,14 +205,17 @@ async function compareEvents(input: ToolInput): Promise<string> {
 }
 
 async function getCategorySummary(input: ToolInput): Promise<string> {
+  const admin = getSupabaseAdmin()
   const category = input.category as string
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await admin
     .from('events')
     .select('id, title, probability, prob_change_24h, volume_24h')
     .eq('category', category)
     .eq('resolution_status', 'open')
     .eq('is_active', true)
+    .is('parent_event_id', null)
+    .or('outcome_type.eq.binary,outcome_type.is.null')
     .order('volume_24h', { ascending: false })
     .limit(15)
 
@@ -230,8 +241,9 @@ async function getCategorySummary(input: ToolInput): Promise<string> {
 
 async function getUserWatchlist(_input: ToolInput, userId?: string): Promise<string> {
   if (!userId) return 'No user session — cannot access watchlist.'
+  const admin = getSupabaseAdmin()
 
-  const { data: items, error } = await supabaseAdmin
+  const { data: items, error } = await admin
     .from('watchlist_items')
     .select('event_id, added_at')
     .eq('user_id', userId)
@@ -241,7 +253,7 @@ async function getUserWatchlist(_input: ToolInput, userId?: string): Promise<str
   if (!items || items.length === 0) return 'Your watchlist is empty.'
 
   const eventIds = items.map((i) => i.event_id)
-  const { data: events } = await supabaseAdmin
+  const { data: events } = await admin
     .from('events')
     .select('id, title, probability, prob_change_24h, volume_24h, category')
     .in('id', eventIds)
@@ -259,12 +271,12 @@ async function getUserWatchlist(_input: ToolInput, userId?: string): Promise<str
 
 async function addToWatchlist(input: ToolInput, userId?: string): Promise<string> {
   if (!userId) return 'No user session — cannot modify watchlist.'
+  const admin = getSupabaseAdmin()
 
   const eventId = input.event_id as string
   if (!eventId) return 'event_id is required.'
 
-  // Verify event exists
-  const { data: event } = await supabaseAdmin
+  const { data: event } = await admin
     .from('events')
     .select('id, title')
     .eq('id', eventId)
@@ -272,8 +284,7 @@ async function addToWatchlist(input: ToolInput, userId?: string): Promise<string
 
   if (!event) return `Event "${eventId}" not found.`
 
-  // Get or create default watchlist group
-  let { data: group } = await supabaseAdmin
+  let { data: group } = await admin
     .from('watchlist_groups')
     .select('id')
     .eq('user_id', userId)
@@ -281,7 +292,7 @@ async function addToWatchlist(input: ToolInput, userId?: string): Promise<string
     .single()
 
   if (!group) {
-    const { data: newGroup } = await supabaseAdmin
+    const { data: newGroup } = await admin
       .from('watchlist_groups')
       .insert({ user_id: userId, name: 'Default' })
       .select('id')
@@ -291,8 +302,7 @@ async function addToWatchlist(input: ToolInput, userId?: string): Promise<string
 
   if (!group) return 'Failed to get watchlist group.'
 
-  // Upsert (ignore if already exists)
-  const { error } = await supabaseAdmin
+  const { error } = await admin
     .from('watchlist_items')
     .upsert(
       { group_id: group.id, user_id: userId, event_id: eventId },
@@ -305,11 +315,12 @@ async function addToWatchlist(input: ToolInput, userId?: string): Promise<string
 
 async function removeFromWatchlist(input: ToolInput, userId?: string): Promise<string> {
   if (!userId) return 'No user session — cannot modify watchlist.'
+  const admin = getSupabaseAdmin()
 
   const eventId = input.event_id as string
   if (!eventId) return 'event_id is required.'
 
-  const { error, count } = await supabaseAdmin
+  const { error, count } = await admin
     .from('watchlist_items')
     .delete({ count: 'exact' })
     .eq('user_id', userId)
@@ -322,6 +333,7 @@ async function removeFromWatchlist(input: ToolInput, userId?: string): Promise<s
 
 async function createAlert(input: ToolInput, userId?: string): Promise<string> {
   if (!userId) return 'No user session — cannot create alert.'
+  const admin = getSupabaseAdmin()
 
   const eventId = input.event_id as string
   const alertType = input.alert_type as string
@@ -330,8 +342,7 @@ async function createAlert(input: ToolInput, userId?: string): Promise<string> {
   if (!eventId) return 'event_id is required.'
   if (!alertType) return 'alert_type is required.'
 
-  // Verify event exists
-  const { data: event } = await supabaseAdmin
+  const { data: event } = await admin
     .from('events')
     .select('id, title')
     .eq('id', eventId)
@@ -339,7 +350,7 @@ async function createAlert(input: ToolInput, userId?: string): Promise<string> {
 
   if (!event) return `Event "${eventId}" not found.`
 
-  const { error } = await supabaseAdmin
+  const { error } = await admin
     .from('alerts')
     .insert({
       user_id: userId,

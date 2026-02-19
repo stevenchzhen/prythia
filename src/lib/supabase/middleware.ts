@@ -30,7 +30,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const protectedPaths = ['/feed', '/watchlist', '/explore', '/chat', '/alerts', '/analytics', '/settings']
+  const protectedPaths = ['/feed', '/watchlist', '/explore', '/chat', '/alerts', '/analytics', '/calibration', '/settings']
   const isProtected = protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path))
   if (!user && isProtected) {
     const url = request.nextUrl.clone()

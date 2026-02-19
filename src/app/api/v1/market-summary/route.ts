@@ -1,23 +1,29 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { queryFast, parseResponse, type Message } from '@/lib/ai/client'
 
 export async function GET() {
   try {
-    // Fetch top gainers and losers
+    const supabase = getSupabaseAdmin()
+
+    // Fetch top gainers and losers in parallel
     const [{ data: gainers }, { data: losers }] = await Promise.all([
-      supabaseAdmin
+      supabase
         .from('events')
         .select('title, probability, prob_change_24h, volume_24h, category')
         .eq('is_active', true)
+        .is('parent_event_id', null)
+        .or('outcome_type.eq.binary,outcome_type.is.null')
         .not('prob_change_24h', 'is', null)
         .gt('prob_change_24h', 0)
         .order('prob_change_24h', { ascending: false })
         .limit(5),
-      supabaseAdmin
+      supabase
         .from('events')
         .select('title, probability, prob_change_24h, volume_24h, category')
         .eq('is_active', true)
+        .is('parent_event_id', null)
+        .or('outcome_type.eq.binary,outcome_type.is.null')
         .not('prob_change_24h', 'is', null)
         .lt('prob_change_24h', 0)
         .order('prob_change_24h', { ascending: true })

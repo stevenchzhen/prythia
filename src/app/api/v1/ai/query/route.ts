@@ -77,9 +77,13 @@ export async function POST(request: NextRequest) {
           events_referenced: result.events_referenced,
         })
 
-      // Auto-title: use first ~60 chars of first assistant response
+      // Auto-title: use first user message (truncated) as the conversation title
       if (!conversation_id) {
-        const title = result.answer.slice(0, 60).replace(/[#*_\n]/g, '').trim()
+        const firstUserMsg = messages.find((m: { role: string }) => m.role === 'user')
+        const title = (firstUserMsg?.content ?? result.answer)
+          .slice(0, 80)
+          .replace(/[#*_\n]/g, '')
+          .trim()
         await supabaseAdmin
           .from('ai_conversations')
           .update({ title })
